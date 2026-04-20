@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AuthError, requirePlatformAdmin } from "@/lib/auth/guards";
 import { fail, ok } from "@/server/dto/api-response";
 import { listPlatformTenants, getPlatformTenant } from "@/server/domain/tenant/platform-tenants";
 
@@ -10,10 +11,30 @@ const schema = z.object({
 });
 
 export async function GET() {
+  try {
+    await requirePlatformAdmin();
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return fail(error.code, error.message, error.status);
+    }
+
+    throw error;
+  }
+
   return ok({ tenants: await listPlatformTenants() });
 }
 
 export async function POST(request: Request) {
+  try {
+    await requirePlatformAdmin();
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return fail(error.code, error.message, error.status);
+    }
+
+    throw error;
+  }
+
   const json = await request.json().catch(() => null);
   const parsed = schema.safeParse(json);
   if (!parsed.success) {

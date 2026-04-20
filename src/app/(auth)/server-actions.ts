@@ -89,3 +89,14 @@ export async function signUpAction(formData: FormData) {
 
   redirect("/setup");
 }
+
+export async function signOutAction() {
+  const supabase = await createServerSupabaseClient();
+  if (supabase) {
+    await supabase.auth.signOut({
+      scope: "local"
+    });
+  }
+
+  redirect("/login");
+}

@@ -1,17 +1,61 @@
-import { getSessionUser } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
+import { getSessionUser, type SessionUser } from "@/lib/auth/session";
+
+export class AuthError extends Error {
+  code: "UNAUTHORIZED" | "FORBIDDEN";
+  status: number;
+
+  constructor(code: "UNAUTHORIZED" | "FORBIDDEN", message: string, status: number) {
+    super(message);
+    this.name = "AuthError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+function isTenantOwner(user: SessionUser | null): user is SessionUser {
+  return !!user && (user.role === "tenant_owner" || user.role === "platform_admin");
+}
+
+function getTenantRedirectPath(user: SessionUser) {
+  return user.tenantId ? "/dashboard" : "/setup";
+}
 
 export async function requireTenantOwner() {
   const user = await getSessionUser();
-  if (!user || (user.role !== "tenant_owner" && user.role !== "platform_admin")) {
-    throw new Error("Forbidden");
+  if (!user) {
+    throw new AuthError("UNAUTHORIZED", "login required", 401);
   }
+
+  if (!isTenantOwner(user)) {
+    throw new AuthError("FORBIDDEN", "forbidden", 403);
+  }
+
   return user;
 }
 
 export async function requirePlatformAdmin() {
   const user = await getSessionUser();
-  if (!user || user.role !== "platform_admin") {
-    throw new Error("Forbidden");
+  if (!user) {
+    throw new AuthError("UNAUTHORIZED", "login required", 401);
   }
+
+  if (user.role !== "platform_admin") {
+    throw new AuthError("FORBIDDEN", "forbidden", 403);
+  }
+
+  return user;
+}
+
+export async function requirePlatformAdminPage() {
+  const user = await getSessionUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  if (user.role !== "platform_admin") {
+    redirect(getTenantRedirectPath(user));
+  }
+
   return user;
 }

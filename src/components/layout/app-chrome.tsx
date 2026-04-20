@@ -1,14 +1,30 @@
 import Link from "next/link";
+import { getSessionUser } from "@/lib/auth/session";
+import { signOutAction } from "@/app/(auth)/server-actions";
 
-const navGroups = [
-  { href: "/", label: "Home" },
-  { href: "/dashboard", label: "Merchant" },
-  { href: "/platform", label: "Platform" },
-  { href: "/playground", label: "Playground" },
-  { href: "/pricing", label: "Pricing" }
-];
+export async function AppChrome({ children }: { children: React.ReactNode }) {
+  const user = await getSessionUser();
+  const navGroups = [
+    { href: "/", label: "Home" },
+    ...(user
+      ? [
+          {
+            href: user.tenantId ? "/dashboard" : "/setup",
+            label: user.tenantId ? "Merchant" : "Setup"
+          },
+          { href: "/playground", label: "Playground" }
+        ]
+      : []),
+    ...(user?.role === "platform_admin" ? [{ href: "/platform", label: "Platform" }] : []),
+    { href: "/pricing", label: "Pricing" },
+    ...(!user
+      ? [
+          { href: "/login", label: "Login" },
+          { href: "/signup", label: "Signup" }
+        ]
+      : [])
+  ];
 
-export function AppChrome({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{
@@ -36,17 +52,43 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
               LINE AI assistant for merchant operations
             </span>
           </div>
-          <nav style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <nav style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             {navGroups.map((item) => (
-              <a
+              <Link
                 key={item.href}
                 href={item.href}
                 className="button button-secondary"
                 style={{ padding: "10px 14px" }}
               >
                 {item.label}
-              </a>
+              </Link>
             ))}
+            {user ? (
+              <>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                    marginLeft: 4
+                  }}
+                >
+                  <span style={{ color: "var(--muted)", fontSize: 14 }}>{user.email}</span>
+                  <span style={{ color: "var(--muted)", fontSize: 12 }}>
+                    {user.role === "platform_admin"
+                      ? "platform admin"
+                      : user.tenantId
+                        ? "merchant owner"
+                        : "setup pending"}
+                  </span>
+                </div>
+                <form action={signOutAction}>
+                  <button className="button button-secondary" type="submit">
+                    Logout
+                  </button>
+                </form>
+              </>
+            ) : null}
           </nav>
         </div>
       </header>
