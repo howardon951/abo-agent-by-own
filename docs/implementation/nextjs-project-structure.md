@@ -136,6 +136,8 @@ src/
         parse-pdf.ts
         fetch-webpage.ts
         normalize-text.ts
+    http/
+      tenant-route.ts
     policies/
       tenant-access.ts
       platform-access.ts
@@ -171,6 +173,11 @@ src/
 - 第三方整合與技術細節
 - 例如 LINE、LLM、embedding、PDF parsing
 
+### `src/server/http`
+
+- route handler 共用的 HTTP 邊界 helper
+- 例如 tenant-scoped auth error mapping
+
 ### `src/worker`
 
 - 處理非同步 job
@@ -183,6 +190,10 @@ src/
   - validate
   - call service
   - return response
+
+- 若多支 route 共享同一種 auth / response mapping 規則：
+  - 抽到 `src/server/http/*`
+  - 不要在每支 route 重複貼同一段 try/catch
 
 - Runtime 流程要集中在單一 orchestrator，例如：
   - `src/server/domain/runtime/process-incoming-message.ts`
@@ -200,3 +211,10 @@ src/
 - `src/server/services/retrieval/retriever.ts`
 - `src/worker/process-message-job.ts`
 
+## 6. 目前建議的實作優先順序
+
+1. `webhook -> message_jobs -> worker -> runtime` 主幹資料流
+2. handoff keyword 與 conversation state transition
+3. retrieval / prompt assembly / llm orchestration
+4. conversations / knowledge / line connect 的真實資料讀寫
+5. integration tests 與 smoke tests

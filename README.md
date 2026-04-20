@@ -27,15 +27,20 @@ pnpm build
 
 - Next.js App Router project scaffold
 - Merchant / Platform dashboards
-- API route skeletons
+- Tenant / platform auth guard baseline
+- Agent / scenario APIs wired to Supabase-backed repositories
+- Knowledge / conversation / playground / webhook APIs still partly mock-backed
 - Runtime / retrieval / LLM / LINE service stubs
 - Supabase schema draft in `supabase/schema.sql`
 - Product and implementation docs in `docs/`
 
 ## Important Notes
 
-- Current pages and APIs use mock data
-- Supabase auth/session uses SSR cookie architecture, but tenant data is still mostly mock-backed
+- Route handlers now follow a thin-controller pattern: auth / validation / domain call / response mapping
+- Merchant APIs now enforce tenant-scoped access, except initial setup flow
+- Supabase auth/session uses SSR cookie architecture
+- Agent and scenario domain modules already use repository injection with Supabase admin queries
+- Conversations, knowledge documents, webhook ingestion, runtime orchestration, and resume-bot are still mostly mock/stub implementations
 - Environment variables follow Supabase's newer `publishable key / secret key` naming
 - LINE webhook signature check is stubbed
 - LLM provider is still a mock implementation
@@ -43,8 +48,9 @@ pnpm build
 
 ## Next Build Steps
 
-1. Wire real Supabase auth and tenant resolution
-2. Apply `supabase/schema.sql` as migrations
-3. Replace mock repositories with DB queries
-4. Replace LINE client/signature stub with real implementation
-5. Replace mock LLM/retrieval with actual provider and embeddings
+1. Implement the core message workflow: webhook -> persisted event/message/job -> worker -> runtime
+2. Implement conversation state and handoff logic: `bot_active` / `human_active` / resume bot
+3. Replace conversation / knowledge / LINE connect mock flows with tenant-aware DB-backed repositories
+4. Replace LINE signature / reply stubs with real implementation
+5. Replace mock LLM / retrieval with real provider and embeddings
+6. Add Supabase integration tests for auth, onboarding, and tenant isolation

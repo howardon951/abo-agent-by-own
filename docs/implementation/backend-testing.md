@@ -9,6 +9,8 @@
 - tenant onboarding
 - schema smoke checks
 - auth 後的租戶解析
+- tenant-scoped API auth boundary
+- agent / scenario repository-backed domain logic
 - message runtime orchestration
 - webhook ingestion
 
@@ -29,7 +31,7 @@
 - 使用 fake repository 或 fake service
 - 執行速度快
 
-本專案目前先完成這一層，因為它最能穩定保護一人開發時最容易壞掉的流程邏輯。
+本專案目前已先完成一批這一層，因為它最能穩定保護一人開發時最容易壞掉的流程邏輯。
 
 適用案例：
 
@@ -170,27 +172,58 @@ pnpm test:backend
 2. 沒有 membership 的登入者仍會被視為 tenant owner，但沒有 tenantId
 3. platform admin 會被解析為 `platform_admin`，並保留 tenant context
 
+### Auth Guards / Tenant Route Boundary
+
+測試檔案：
+
+- [guards.test.ts](/Users/howardchi/Desktop/2026/abo-agent-by-own/tests/backend/auth/guards.test.ts)
+- [tenant-route.test.ts](/Users/howardchi/Desktop/2026/abo-agent-by-own/tests/backend/http/tenant-route.test.ts)
+
+目前覆蓋：
+
+1. tenant owner 與 platform admin 的 tenant access 判斷
+2. setup pending 使用者不可通過 tenant-scoped guard
+3. tenant-scoped route helper 會把 `AuthError` 正確轉成 API fail response
+4. 非 auth 類錯誤會繼續往上拋，避免被誤吞
+
+### Agent / Scenario Domain
+
+測試檔案：
+
+- [get-current-agent.test.ts](/Users/howardchi/Desktop/2026/abo-agent-by-own/tests/backend/agent/get-current-agent.test.ts)
+- [list-scenarios.test.ts](/Users/howardchi/Desktop/2026/abo-agent-by-own/tests/backend/scenario/list-scenarios.test.ts)
+- [select-scenario.test.ts](/Users/howardchi/Desktop/2026/abo-agent-by-own/tests/backend/scenario/select-scenario.test.ts)
+
+目前覆蓋：
+
+1. agent 讀取與更新會帶 tenant 範圍進 repository
+2. scenario 列表與更新會帶 tenant 與 scenario id 進 repository
+3. 規則式 scenario routing 的優先序與 fallback
+
 ## 6. 下一步建議補的測試
 
 優先順序：
 
 1. `getSessionUser()` integration tests
-2. `/api/tenant/setup` route tests
-3. scenario routing unit tests
+2. `/api/tenant/setup` integration / route tests
+3. webhook ingestion unit tests
 4. handoff keyword unit tests
 5. runtime orchestration unit tests
+6. conversation state transition tests
 
 ## 7. 對這個專案的具體建議
 
 短期：
 
 - 所有新的 domain service 都先做 repository injection
-- 每個主流程至少有一個成功測試與一個失敗補償測試
+- route handler 只保留 auth / validation / response mapping，重複邏輯可抽 helper
+- 每個主流程至少有一個成功測試與一個失敗補償或中止測試
 
 中期：
 
 - 建一組 Supabase integration test 環境
-- 把 onboarding 改成 RPC/transaction 後補 integration test
+- 先補 onboarding / auth / tenant isolation 的 integration tests
+- runtime 與 webhook 改為真實資料流後，再補 workflow integration tests
 
 長期：
 
