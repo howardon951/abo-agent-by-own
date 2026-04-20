@@ -1,7 +1,7 @@
 create extension if not exists pgcrypto;
 create extension if not exists vector;
 
-create type public.app_role as enum ('platform_admin', 'tenant_owner');
+create type public.tenant_member_role as enum ('owner', 'admin');
 create type public.tenant_status as enum ('draft', 'active', 'suspended', 'archived');
 create type public.subscription_status as enum ('trialing', 'active', 'past_due', 'canceled');
 create type public.agent_status as enum ('draft', 'active', 'paused', 'archived');
@@ -61,11 +61,13 @@ create table public.tenant_members (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
-  role public.app_role not null default 'tenant_owner',
+  role public.tenant_member_role not null default 'owner',
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   unique (tenant_id, user_id)
 );
+
+create index tenant_members_user_tenant_idx on public.tenant_members (user_id, tenant_id);
 
 create table public.tenant_subscriptions (
   id uuid primary key default gen_random_uuid(),
@@ -94,20 +96,30 @@ create table public.agents (
   config jsonb not null default '{}'::jsonb,
   published_prompt_version_id uuid,
   created_at timestamptz not null default timezone('utc', now()),
-  updated_at timestamptz not null default timezone('utc', now())
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (tenant_id, id)
 );
+
+create index agents_tenant_status_idx on public.agents (tenant_id, status);
+create unique index agents_one_active_per_tenant_idx
+  on public.agents (tenant_id)
+  where status = 'active';
 
 create table public.agent_prompt_versions (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
-  agent_id uuid not null references public.agents(id) on delete cascade,
+  agent_id uuid not null,
   version_no integer not null,
   status public.prompt_version_status not null default 'draft',
   prompt_snapshot jsonb not null,
   notes text,
   created_by uuid references auth.users(id),
   created_at timestamptz not null default timezone('utc', now()),
-  unique (agent_id, version_no)
+  unique (tenant_id, id),
+  unique (agent_id, version_no),
+  foreign key (tenant_id, agent_id)
+    references public.agents (tenant_id, id)
+    on delete cascade
 );
 
 alter table public.agents
@@ -119,7 +131,7 @@ alter table public.agents
 create table public.agent_scenarios (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
-  agent_id uuid not null references public.agents(id) on delete cascade,
+  agent_id uuid not null,
   scenario_type public.scenario_type not null,
   name text not null,
   routing_keywords text[] not null default '{}',
@@ -127,19 +139,31 @@ create table public.agent_scenarios (
   sort_order integer not null default 100,
   is_enabled boolean not null default true,
   created_at timestamptz not null default timezone('utc', now()),
-  updated_at timestamptz not null default timezone('utc', now())
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (tenant_id, id),
+  unique (agent_id, scenario_type),
+  foreign key (tenant_id, agent_id)
+    references public.agents (tenant_id, id)
+    on delete cascade
 );
+
+create index agent_scenarios_agent_enabled_sort_idx
+  on public.agent_scenarios (agent_id, is_enabled, sort_order);
 
 create table public.agent_handoff_rules (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
-  agent_id uuid not null references public.agents(id) on delete cascade,
+  agent_id uuid not null,
   rule_name text not null,
   keywords text[] not null default '{}',
   auto_reply_text text not null,
   is_enabled boolean not null default true,
   created_at timestamptz not null default timezone('utc', now()),
-  updated_at timestamptz not null default timezone('utc', now())
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (tenant_id, id),
+  foreign key (tenant_id, agent_id)
+    references public.agents (tenant_id, id)
+    on delete cascade
 );
 
 create table public.channels (
@@ -150,15 +174,17 @@ create table public.channels (
   status public.channel_status not null default 'disconnected',
   is_primary boolean not null default false,
   created_at timestamptz not null default timezone('utc', now()),
-  updated_at timestamptz not null default timezone('utc', now())
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (tenant_id, id)
 );
 
+create index channels_tenant_provider_idx on public.channels (tenant_id, provider);
 create unique index channels_one_primary_per_tenant_provider_idx
   on public.channels (tenant_id, provider)
   where is_primary = true;
 
 create table public.line_channel_configs (
-  channel_id uuid primary key references public.channels(id) on delete cascade,
+  channel_id uuid primary key,
   tenant_id uuid not null references public.tenants(id) on delete cascade,
   channel_id_external text,
   channel_secret_ciphertext text not null,
@@ -167,8 +193,15 @@ create table public.line_channel_configs (
   webhook_verified_at timestamptz,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default timezone('utc', now()),
-  updated_at timestamptz not null default timezone('utc', now())
+  updated_at timestamptz not null default timezone('utc', now()),
+  foreign key (tenant_id, channel_id)
+    references public.channels (tenant_id, id)
+    on delete cascade
 );
+
+create unique index line_channel_configs_external_id_idx
+  on public.line_channel_configs (channel_id_external)
+  where channel_id_external is not null;
 
 create table public.knowledge_bases (
   id uuid primary key default gen_random_uuid(),
@@ -176,7 +209,8 @@ create table public.knowledge_bases (
   name text not null,
   is_default boolean not null default false,
   created_at timestamptz not null default timezone('utc', now()),
-  updated_at timestamptz not null default timezone('utc', now())
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (tenant_id, id)
 );
 
 create unique index knowledge_bases_one_default_per_tenant_idx
@@ -186,7 +220,7 @@ create unique index knowledge_bases_one_default_per_tenant_idx
 create table public.knowledge_documents (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
-  knowledge_base_id uuid not null references public.knowledge_bases(id) on delete cascade,
+  knowledge_base_id uuid not null,
   source_type public.document_source_type not null,
   title text not null,
   source_url text,
@@ -198,21 +232,36 @@ create table public.knowledge_documents (
   processing_error text,
   created_by uuid references auth.users(id),
   created_at timestamptz not null default timezone('utc', now()),
-  updated_at timestamptz not null default timezone('utc', now())
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (tenant_id, id),
+  foreign key (tenant_id, knowledge_base_id)
+    references public.knowledge_bases (tenant_id, id)
+    on delete cascade
 );
+
+create index knowledge_documents_tenant_status_created_idx
+  on public.knowledge_documents (tenant_id, processing_status, created_at desc);
 
 create table public.knowledge_chunks (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
-  knowledge_base_id uuid not null references public.knowledge_bases(id) on delete cascade,
-  document_id uuid not null references public.knowledge_documents(id) on delete cascade,
+  knowledge_base_id uuid not null,
+  document_id uuid not null,
   chunk_index integer not null,
   content text not null,
   token_count integer,
+  embedding_model text,
   metadata jsonb not null default '{}'::jsonb,
   embedding vector(1536),
   created_at timestamptz not null default timezone('utc', now()),
-  unique (document_id, chunk_index)
+  unique (tenant_id, id),
+  unique (document_id, chunk_index),
+  foreign key (tenant_id, knowledge_base_id)
+    references public.knowledge_bases (tenant_id, id)
+    on delete cascade,
+  foreign key (tenant_id, document_id)
+    references public.knowledge_documents (tenant_id, id)
+    on delete cascade
 );
 
 create index knowledge_chunks_document_idx on public.knowledge_chunks (document_id, chunk_index);
@@ -225,24 +274,28 @@ create index knowledge_chunks_embedding_idx
 create table public.contacts (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
-  channel_id uuid not null references public.channels(id) on delete cascade,
+  channel_id uuid not null,
   external_user_id text not null,
   display_name text,
   profile jsonb not null default '{}'::jsonb,
   last_seen_at timestamptz,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
-  unique (channel_id, external_user_id)
+  unique (tenant_id, id),
+  unique (channel_id, external_user_id),
+  foreign key (tenant_id, channel_id)
+    references public.channels (tenant_id, id)
+    on delete cascade
 );
 
 create table public.conversations (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
-  channel_id uuid not null references public.channels(id) on delete cascade,
-  contact_id uuid not null references public.contacts(id) on delete cascade,
-  agent_id uuid not null references public.agents(id) on delete cascade,
+  channel_id uuid not null,
+  contact_id uuid not null,
+  agent_id uuid not null,
   status public.conversation_status not null default 'bot_active',
-  scenario_id uuid references public.agent_scenarios(id) on delete set null,
+  scenario_id uuid,
   opened_at timestamptz not null default timezone('utc', now()),
   last_message_at timestamptz,
   handoff_requested_at timestamptz,
@@ -250,9 +303,24 @@ create table public.conversations (
   closed_at timestamptz,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default timezone('utc', now()),
-  updated_at timestamptz not null default timezone('utc', now())
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (tenant_id, id),
+  foreign key (tenant_id, channel_id)
+    references public.channels (tenant_id, id)
+    on delete cascade,
+  foreign key (tenant_id, contact_id)
+    references public.contacts (tenant_id, id)
+    on delete cascade,
+  foreign key (tenant_id, agent_id)
+    references public.agents (tenant_id, id)
+    on delete cascade,
+  foreign key (tenant_id, scenario_id)
+    references public.agent_scenarios (tenant_id, id)
+    on delete set null
 );
 
+create index conversations_tenant_status_last_message_idx
+  on public.conversations (tenant_id, status, last_message_at desc, id desc);
 create unique index conversations_one_open_per_contact_idx
   on public.conversations (channel_id, contact_id)
   where status in ('bot_active', 'handoff_requested', 'human_active');
@@ -260,39 +328,58 @@ create unique index conversations_one_open_per_contact_idx
 create table public.messages (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
-  conversation_id uuid not null references public.conversations(id) on delete cascade,
+  conversation_id uuid not null,
   external_message_id text,
   role public.message_role not null,
   source public.message_source not null,
   content text not null,
   metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default timezone('utc', now())
+  created_at timestamptz not null default timezone('utc', now()),
+  unique (tenant_id, id),
+  foreign key (tenant_id, conversation_id)
+    references public.conversations (tenant_id, id)
+    on delete cascade
 );
 
-create index messages_conversation_created_idx on public.messages (conversation_id, created_at);
+create index messages_conversation_created_idx on public.messages (conversation_id, created_at, id);
 create unique index messages_external_message_id_idx
-  on public.messages (external_message_id)
+  on public.messages (tenant_id, source, external_message_id)
   where external_message_id is not null;
 
 create table public.message_jobs (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
-  conversation_id uuid not null references public.conversations(id) on delete cascade,
-  message_id uuid not null references public.messages(id) on delete cascade,
+  conversation_id uuid not null,
+  message_id uuid not null,
+  job_type text not null default 'process_incoming_message',
   status public.job_status not null default 'queued',
   retry_count integer not null default 0,
   max_retries integer not null default 5,
   available_at timestamptz not null default timezone('utc', now()),
-  started_at timestamptz,
+  locked_at timestamptz,
+  lease_expires_at timestamptz,
   finished_at timestamptz,
   worker_id text,
   last_error text,
   created_at timestamptz not null default timezone('utc', now()),
-  updated_at timestamptz not null default timezone('utc', now())
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (message_id),
+  foreign key (tenant_id, conversation_id)
+    references public.conversations (tenant_id, id)
+    on delete cascade,
+  foreign key (tenant_id, message_id)
+    references public.messages (tenant_id, id)
+    on delete cascade,
+  check (retry_count >= 0),
+  check (max_retries >= 0),
+  check (lease_expires_at is null or locked_at is not null)
 );
 
 create index message_jobs_polling_idx
-  on public.message_jobs (status, available_at, created_at);
+  on public.message_jobs (status, available_at, id);
+create index message_jobs_queued_polling_idx
+  on public.message_jobs (available_at, id)
+  where status = 'queued';
 
 create table public.webhook_events (
   id uuid primary key default gen_random_uuid(),
@@ -312,19 +399,29 @@ create table public.webhook_events (
 create table public.retrieval_logs (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
-  conversation_id uuid not null references public.conversations(id) on delete cascade,
-  message_id uuid not null references public.messages(id) on delete cascade,
-  knowledge_base_id uuid references public.knowledge_bases(id) on delete set null,
+  conversation_id uuid not null,
+  message_id uuid not null,
+  knowledge_base_id uuid,
   query_text text not null,
   retrieved_chunks jsonb not null default '[]'::jsonb,
-  created_at timestamptz not null default timezone('utc', now())
+  created_at timestamptz not null default timezone('utc', now()),
+  unique (tenant_id, id),
+  foreign key (tenant_id, conversation_id)
+    references public.conversations (tenant_id, id)
+    on delete cascade,
+  foreign key (tenant_id, message_id)
+    references public.messages (tenant_id, id)
+    on delete cascade,
+  foreign key (tenant_id, knowledge_base_id)
+    references public.knowledge_bases (tenant_id, id)
+    on delete set null
 );
 
 create table public.llm_logs (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
-  conversation_id uuid not null references public.conversations(id) on delete cascade,
-  message_id uuid not null references public.messages(id) on delete cascade,
+  conversation_id uuid not null,
+  message_id uuid not null,
   retrieval_log_id uuid references public.retrieval_logs(id) on delete set null,
   model_provider text not null,
   model_name text not null,
@@ -336,7 +433,14 @@ create table public.llm_logs (
   total_tokens integer,
   latency_ms integer,
   was_fallback boolean not null default false,
-  created_at timestamptz not null default timezone('utc', now())
+  created_at timestamptz not null default timezone('utc', now()),
+  unique (tenant_id, id),
+  foreign key (tenant_id, conversation_id)
+    references public.conversations (tenant_id, id)
+    on delete cascade,
+  foreign key (tenant_id, message_id)
+    references public.messages (tenant_id, id)
+    on delete cascade
 );
 
 create table public.usage_records (
@@ -382,6 +486,22 @@ as $$
     from public.tenant_members tm
     where tm.user_id = auth.uid()
       and tm.tenant_id = target_tenant_id
+  );
+$$;
+
+create or replace function public.has_tenant_admin_access(target_tenant_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.tenant_members tm
+    where tm.user_id = auth.uid()
+      and tm.tenant_id = target_tenant_id
+      and tm.role in ('owner', 'admin')
   );
 $$;
 
@@ -431,138 +551,167 @@ create policy tenants_insert
 create policy tenants_update
   on public.tenants
   for update
-  using (public.is_platform_admin() or public.has_tenant_access(id))
-  with check (public.is_platform_admin() or public.has_tenant_access(id));
+  using (public.is_platform_admin() or public.has_tenant_admin_access(id))
+  with check (public.is_platform_admin() or public.has_tenant_admin_access(id));
 
 create policy tenant_members_select
   on public.tenant_members
   for select
   using (public.is_platform_admin() or public.has_tenant_access(tenant_id));
 
-create policy tenant_members_mutate
+create policy tenant_members_insert
   on public.tenant_members
-  for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+  for insert
+  with check (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id));
 
-create policy tenant_scoped_select_subscriptions
+create policy tenant_members_update
+  on public.tenant_members
+  for update
+  using (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id))
+  with check (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id));
+
+create policy tenant_members_delete
+  on public.tenant_members
+  for delete
+  using (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id));
+
+create policy tenant_subscriptions_select
   on public.tenant_subscriptions
   for select
   using (public.is_platform_admin() or public.has_tenant_access(tenant_id));
 
-create policy tenant_scoped_mutate_subscriptions
+create policy tenant_subscriptions_mutate
   on public.tenant_subscriptions
   for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+  using (public.is_platform_admin())
+  with check (public.is_platform_admin());
 
-create policy tenant_scoped_all_agents
+create policy agents_select
+  on public.agents
+  for select
+  using (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+
+create policy agents_mutate
   on public.agents
   for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+  using (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id))
+  with check (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id));
 
-create policy tenant_scoped_all_agent_prompt_versions
+create policy agent_prompt_versions_select
+  on public.agent_prompt_versions
+  for select
+  using (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+
+create policy agent_prompt_versions_mutate
   on public.agent_prompt_versions
   for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+  using (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id))
+  with check (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id));
 
-create policy tenant_scoped_all_agent_scenarios
+create policy agent_scenarios_select
+  on public.agent_scenarios
+  for select
+  using (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+
+create policy agent_scenarios_mutate
   on public.agent_scenarios
   for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+  using (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id))
+  with check (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id));
 
-create policy tenant_scoped_all_agent_handoff_rules
+create policy agent_handoff_rules_select
+  on public.agent_handoff_rules
+  for select
+  using (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+
+create policy agent_handoff_rules_mutate
   on public.agent_handoff_rules
   for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+  using (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id))
+  with check (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id));
 
-create policy tenant_scoped_all_channels
+create policy channels_select
+  on public.channels
+  for select
+  using (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+
+create policy channels_mutate
   on public.channels
   for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+  using (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id))
+  with check (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id));
 
-create policy tenant_scoped_all_line_channel_configs
-  on public.line_channel_configs
-  for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+create policy knowledge_bases_select
+  on public.knowledge_bases
+  for select
+  using (public.is_platform_admin() or public.has_tenant_access(tenant_id));
 
-create policy tenant_scoped_all_knowledge_bases
+create policy knowledge_bases_mutate
   on public.knowledge_bases
   for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+  using (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id))
+  with check (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id));
 
-create policy tenant_scoped_all_knowledge_documents
+create policy knowledge_documents_select
+  on public.knowledge_documents
+  for select
+  using (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+
+create policy knowledge_documents_mutate
   on public.knowledge_documents
   for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+  using (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id))
+  with check (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id));
 
-create policy tenant_scoped_all_knowledge_chunks
-  on public.knowledge_chunks
-  for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+create policy contacts_select
+  on public.contacts
+  for select
+  using (public.is_platform_admin() or public.has_tenant_access(tenant_id));
 
-create policy tenant_scoped_all_contacts
+create policy contacts_mutate
   on public.contacts
   for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+  using (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id))
+  with check (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id));
 
-create policy tenant_scoped_all_conversations
+create policy conversations_select
   on public.conversations
-  for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+  for select
+  using (public.is_platform_admin() or public.has_tenant_access(tenant_id));
 
-create policy tenant_scoped_all_messages
+create policy conversations_update
+  on public.conversations
+  for update
+  using (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id))
+  with check (public.is_platform_admin() or public.has_tenant_admin_access(tenant_id));
+
+create policy messages_select
   on public.messages
-  for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+  for select
+  using (public.is_platform_admin() or public.has_tenant_access(tenant_id));
 
-create policy tenant_scoped_all_message_jobs
-  on public.message_jobs
-  for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
-
-create policy tenant_scoped_all_webhook_events
+create policy webhook_events_select
   on public.webhook_events
-  for all
+  for select
   using (
-    public.is_platform_admin()
-    or (tenant_id is not null and public.has_tenant_access(tenant_id))
-  )
-  with check (
     public.is_platform_admin()
     or (tenant_id is not null and public.has_tenant_access(tenant_id))
   );
 
-create policy tenant_scoped_all_retrieval_logs
+create policy retrieval_logs_select
   on public.retrieval_logs
-  for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+  for select
+  using (public.is_platform_admin() or public.has_tenant_access(tenant_id));
 
-create policy tenant_scoped_all_llm_logs
+create policy llm_logs_select
   on public.llm_logs
-  for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+  for select
+  using (public.is_platform_admin() or public.has_tenant_access(tenant_id));
 
-create policy tenant_scoped_all_usage_records
+create policy usage_records_select
   on public.usage_records
-  for all
-  using (public.is_platform_admin() or public.has_tenant_access(tenant_id))
-  with check (public.is_platform_admin() or public.has_tenant_access(tenant_id));
+  for select
+  using (public.is_platform_admin() or public.has_tenant_access(tenant_id));
 
 create trigger set_updated_at_plans
 before update on public.plans

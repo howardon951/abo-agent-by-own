@@ -2,6 +2,7 @@ import { PageSection } from "@/components/layout/page-section";
 import { StatCard } from "@/components/ui/stat-card";
 import { DataTable } from "@/components/ui/data-table";
 import { getSessionUser } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
 
 const rows = [
   {
@@ -20,6 +21,14 @@ const rows = [
 
 export default async function MerchantDashboardPage() {
   const user = await getSessionUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  if (user.role === "tenant_owner" && !user.tenantId) {
+    redirect("/setup");
+  }
 
   return (
     <div className="stack" style={{ gap: 24 }}>

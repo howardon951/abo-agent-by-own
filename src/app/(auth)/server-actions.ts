@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 function redirectWithMessage(path: string, message: string): never {
   redirect(`${path}?message=${encodeURIComponent(message)}`);
@@ -20,7 +21,10 @@ export async function signInAction(formData: FormData) {
     redirectWithMessage("/login", "Supabase 環境變數尚未配置");
   }
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const {
+    data: { user },
+    error
+  } = await supabase.auth.signInWithPassword({
     email,
     password
   });
@@ -29,7 +33,23 @@ export async function signInAction(formData: FormData) {
     redirectWithMessage("/login", error.message);
   }
 
-  redirect("/dashboard");
+  if (!user) {
+    redirect("/dashboard");
+  }
+
+  const admin = createAdminSupabaseClient();
+  if (!admin) {
+    redirect("/dashboard");
+  }
+
+  const { data: tenantMember } = await admin
+    .from("tenant_members")
+    .select("tenant_id")
+    .eq("user_id", user.id)
+    .limit(1)
+    .maybeSingle();
+
+  redirect(tenantMember?.tenant_id ? "/dashboard" : "/setup");
 }
 
 export async function signUpAction(formData: FormData) {
@@ -67,5 +87,5 @@ export async function signUpAction(formData: FormData) {
     redirectWithMessage("/login", "註冊成功，請先至信箱完成驗證後登入");
   }
 
-  redirect("/dashboard");
+  redirect("/setup");
 }
