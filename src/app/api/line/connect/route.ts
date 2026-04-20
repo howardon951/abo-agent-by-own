@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { fail, ok } from "@/server/dto/api-response";
 import { connectLineChannel } from "@/server/domain/channel/connect-line-channel";
+import { runTenantScopedRoute } from "@/server/http/tenant-route";
 
 const schema = z.object({
   name: z.string().min(1),
@@ -10,12 +11,14 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  const json = await request.json().catch(() => null);
-  const parsed = schema.safeParse(json);
+  return runTenantScopedRoute(async () => {
+    const json = await request.json().catch(() => null);
+    const parsed = schema.safeParse(json);
 
-  if (!parsed.success) {
-    return fail("VALIDATION_ERROR", "invalid line channel payload");
-  }
+    if (!parsed.success) {
+      return fail("VALIDATION_ERROR", "invalid line channel payload");
+    }
 
-  return ok(await connectLineChannel(parsed.data));
+    return ok(await connectLineChannel(parsed.data));
+  });
 }

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import type { SessionUser } from "@/lib/auth/session";
 import {
   AuthError,
+  ensureTenantScopedUser,
   ensurePlatformAdminUser,
   ensureTenantOwnerUser,
   getTenantRedirectPath,
@@ -43,6 +44,19 @@ test("maps tenant redirect path to setup or dashboard based on tenant membership
 test("allows tenant owner guard for tenant owner and platform admin users", () => {
   assert.equal(ensureTenantOwnerUser(tenantOwner), tenantOwner);
   assert.equal(ensureTenantOwnerUser(platformAdmin), platformAdmin);
+});
+
+test("requires tenant context for merchant-scoped access", () => {
+  assert.equal(ensureTenantScopedUser(tenantOwner), tenantOwner);
+  assert.equal(ensureTenantScopedUser(platformAdmin), platformAdmin);
+
+  assert.throws(() => ensureTenantScopedUser(setupPendingOwner), (error) => {
+    assert.ok(error instanceof AuthError);
+    assert.equal(error.code, "FORBIDDEN");
+    assert.equal(error.status, 403);
+    assert.equal(error.message, "tenant context required");
+    return true;
+  });
 });
 
 test("rejects tenant owner guard when session is missing", () => {

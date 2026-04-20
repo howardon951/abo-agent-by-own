@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
 import { getSessionUser, type SessionUser } from "@/lib/auth/session";
 
+export type TenantScopedUser = SessionUser & {
+  tenantId: string;
+};
+
 export class AuthError extends Error {
   code: "UNAUTHORIZED" | "FORBIDDEN";
   status: number;
@@ -33,6 +37,16 @@ export function ensureTenantOwnerUser(user: SessionUser | null) {
   return user;
 }
 
+export function ensureTenantScopedUser(user: SessionUser | null): TenantScopedUser {
+  const tenantUser = ensureTenantOwnerUser(user);
+
+  if (!tenantUser.tenantId) {
+    throw new AuthError("FORBIDDEN", "tenant context required", 403);
+  }
+
+  return tenantUser as TenantScopedUser;
+}
+
 export function ensurePlatformAdminUser(user: SessionUser | null) {
   if (!user) {
     throw new AuthError("UNAUTHORIZED", "login required", 401);
@@ -47,6 +61,10 @@ export function ensurePlatformAdminUser(user: SessionUser | null) {
 
 export async function requireTenantOwner() {
   return ensureTenantOwnerUser(await getSessionUser());
+}
+
+export async function requireTenantScopedUser() {
+  return ensureTenantScopedUser(await getSessionUser());
 }
 
 export async function requirePlatformAdmin() {

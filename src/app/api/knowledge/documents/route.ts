@@ -4,6 +4,7 @@ import {
   createKnowledgeDocument,
   listKnowledgeDocuments
 } from "@/server/domain/knowledge/list-documents";
+import { runTenantScopedRoute } from "@/server/http/tenant-route";
 
 const schema = z.object({
   sourceType: z.enum(["faq", "pdf", "url"]),
@@ -13,16 +14,18 @@ const schema = z.object({
 });
 
 export async function GET() {
-  return ok(await listKnowledgeDocuments());
+  return runTenantScopedRoute(async () => ok(await listKnowledgeDocuments()));
 }
 
 export async function POST(request: Request) {
-  const json = await request.json().catch(() => null);
-  const parsed = schema.safeParse(json);
+  return runTenantScopedRoute(async () => {
+    const json = await request.json().catch(() => null);
+    const parsed = schema.safeParse(json);
 
-  if (!parsed.success) {
-    return fail("VALIDATION_ERROR", "invalid document payload");
-  }
+    if (!parsed.success) {
+      return fail("VALIDATION_ERROR", "invalid document payload");
+    }
 
-  return ok(await createKnowledgeDocument(parsed.data));
+    return ok(await createKnowledgeDocument(parsed.data));
+  });
 }
