@@ -1,29 +1,11 @@
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth/session";
 import { signOutAction } from "@/app/(auth)/server-actions";
+import { buildAppChromeNav, getAppChromeRoleLabel } from "@/components/layout/app-chrome-nav";
 
 export async function AppChrome({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
-  const navGroups = [
-    { href: "/", label: "Home" },
-    ...(user
-      ? [
-          {
-            href: user.tenantId ? "/dashboard" : "/setup",
-            label: user.tenantId ? "Merchant" : "Setup"
-          },
-          { href: "/playground", label: "Playground" }
-        ]
-      : []),
-    ...(user?.role === "platform_admin" ? [{ href: "/platform", label: "Platform" }] : []),
-    { href: "/pricing", label: "Pricing" },
-    ...(!user
-      ? [
-          { href: "/login", label: "Login" },
-          { href: "/signup", label: "Signup" }
-        ]
-      : [])
-  ];
+  const navGroups = buildAppChromeNav(user);
 
   return (
     <div
@@ -75,11 +57,7 @@ export async function AppChrome({ children }: { children: React.ReactNode }) {
                 >
                   <span style={{ color: "var(--muted)", fontSize: 14 }}>{user.email}</span>
                   <span style={{ color: "var(--muted)", fontSize: 12 }}>
-                    {user.role === "platform_admin"
-                      ? "platform admin"
-                      : user.tenantId
-                        ? "merchant owner"
-                        : "setup pending"}
+                    {getAppChromeRoleLabel(user)}
                   </span>
                 </div>
                 <form action={signOutAction}>

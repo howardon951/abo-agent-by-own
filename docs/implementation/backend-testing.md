@@ -34,6 +34,7 @@
 適用案例：
 
 - `setupTenant()`
+- `resolveSessionUser()`
 - scenario routing
 - handoff rule 判斷
 - prompt assembly
@@ -129,7 +130,7 @@ Route handler 應只做：
 
 - `node:test`
 - `node:assert/strict`
-- `tsx --test`
+- `node --import tsx --test`
 
 原因：
 
@@ -157,18 +158,17 @@ pnpm test:backend
 2. 首次建立時，會依序 bootstrap tenant / member / agent / knowledge base / scenarios / handoff rule
 3. bootstrap 過程失敗時，會執行 tenant compensation delete
 
-### Schema Smoke
+### Session Resolution
 
 測試檔案：
 
-- [schema-smoke.test.ts](/Users/howardchi/Desktop/2026/abo-agent-by-own/tests/backend/schema/schema-smoke.test.ts)
+- [session.test.ts](/Users/howardchi/Desktop/2026/abo-agent-by-own/tests/backend/auth/session.test.ts)
 
 目前覆蓋：
 
-1. `tenant_member_role` 取代舊的混合角色 enum
-2. 核心 runtime tables 的 composite foreign key 存在
-3. `message_jobs` 的 lease / idempotency 欄位存在
-4. backend-only tables 沒被意外打開 tenant-facing RLS policy
+1. 一般 tenant owner 會帶出 tenant context
+2. 沒有 membership 的登入者仍會被視為 tenant owner，但沒有 tenantId
+3. platform admin 會被解析為 `platform_admin`，並保留 tenant context
 
 ## 6. 下一步建議補的測試
 

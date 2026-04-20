@@ -13,16 +13,15 @@ export class AuthError extends Error {
   }
 }
 
-function isTenantOwner(user: SessionUser | null): user is SessionUser {
+export function isTenantOwner(user: SessionUser | null): user is SessionUser {
   return !!user && (user.role === "tenant_owner" || user.role === "platform_admin");
 }
 
-function getTenantRedirectPath(user: SessionUser) {
+export function getTenantRedirectPath(user: SessionUser) {
   return user.tenantId ? "/dashboard" : "/setup";
 }
 
-export async function requireTenantOwner() {
-  const user = await getSessionUser();
+export function ensureTenantOwnerUser(user: SessionUser | null) {
   if (!user) {
     throw new AuthError("UNAUTHORIZED", "login required", 401);
   }
@@ -34,8 +33,7 @@ export async function requireTenantOwner() {
   return user;
 }
 
-export async function requirePlatformAdmin() {
-  const user = await getSessionUser();
+export function ensurePlatformAdminUser(user: SessionUser | null) {
   if (!user) {
     throw new AuthError("UNAUTHORIZED", "login required", 401);
   }
@@ -45,6 +43,14 @@ export async function requirePlatformAdmin() {
   }
 
   return user;
+}
+
+export async function requireTenantOwner() {
+  return ensureTenantOwnerUser(await getSessionUser());
+}
+
+export async function requirePlatformAdmin() {
+  return ensurePlatformAdminUser(await getSessionUser());
 }
 
 export async function requirePlatformAdminPage() {
