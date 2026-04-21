@@ -38,6 +38,8 @@ export async function processMessageJob(
 
     const result = await dependencies.processIncomingMessage({
       tenantId: job.tenantId,
+      conversationId: job.conversationId,
+      messageId: job.messageId,
       channelId: job.channelId,
       externalUserId: job.externalUserId,
       message: job.message,

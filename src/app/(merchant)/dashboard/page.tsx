@@ -4,21 +4,8 @@ import { StatCard } from "@/components/ui/stat-card";
 import { DataTable } from "@/components/ui/data-table";
 import { getSessionUser } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
-
-const rows = [
-  {
-    contact: "LINE User A",
-    status: "bot_active",
-    lastMessage: "今天營業到幾點？",
-    updatedAt: "13:00"
-  },
-  {
-    contact: "LINE User B",
-    status: "human_active",
-    lastMessage: "我要退貨",
-    updatedAt: "13:05"
-  }
-];
+import { listConversations } from "@/server/domain/conversation/list-conversations";
+import { listKnowledgeDocuments } from "@/server/domain/knowledge/list-documents";
 
 export default async function MerchantDashboardPage() {
   const user = await getSessionUser();
@@ -30,6 +17,16 @@ export default async function MerchantDashboardPage() {
   if (user.role === "tenant_owner" && !user.tenantId) {
     redirect("/setup");
   }
+
+  const conversations = await listConversations(user.tenantId ?? "");
+  const knowledgeDocuments = await listKnowledgeDocuments();
+  const openHandoffs = conversations.items.filter((item) => item.status === "human_active").length;
+  const dashboardRows = conversations.items.slice(0, 5).map((conversation) => ({
+    contact: conversation.contactDisplayName,
+    status: conversation.status,
+    lastMessage: conversation.lastMessageSnippet ?? "-",
+    updatedAt: formatDateTime(conversation.lastMessageAt)
+  }));
 
   return (
     <div className="stack" style={{ gap: 24 }}>
@@ -66,9 +63,17 @@ export default async function MerchantDashboardPage() {
           </div>
         </div>
         <div className="grid-3">
-          <StatCard label="Messages Today" value="42" hint="LINE webhook -> runtime" />
-          <StatCard label="Open Handoffs" value="2" hint="需要人工接手" />
-          <StatCard label="Knowledge Docs" value="6" hint="FAQ / PDF / URL" />
+          <StatCard
+            label="Tracked Conversations"
+            value={String(conversations.items.length)}
+            hint="目前資料庫中的對話數"
+          />
+          <StatCard label="Open Handoffs" value={String(openHandoffs)} hint="需要人工接手" />
+          <StatCard
+            label="Knowledge Docs"
+            value={String(knowledgeDocuments.documents.length)}
+            hint="FAQ / PDF / URL"
+          />
         </div>
       </PageSection>
       <DataTable
@@ -78,8 +83,22 @@ export default async function MerchantDashboardPage() {
           { key: "lastMessage", label: "Last Message" },
           { key: "updatedAt", label: "Updated" }
         ]}
-        rows={rows}
+        rows={dashboardRows}
       />
     </div>
   );
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) {
+    return "-";
+  }
+
+  return new Date(value).toLocaleString("zh-TW", {
+    hour12: false,
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }

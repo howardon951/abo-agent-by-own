@@ -6,8 +6,8 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ conversationId: string }> }
 ) {
-  return runTenantScopedRoute(async () => {
+  return runTenantScopedRoute(async (user) => {
     const { conversationId } = await params;
-    return ok(await getConversation(conversationId));
+    return ok(await getConversation(user.tenantId, conversationId));
   });
 }

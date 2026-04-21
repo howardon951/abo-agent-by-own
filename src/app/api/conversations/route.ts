@@ -3,5 +3,5 @@ import { listConversations } from "@/server/domain/conversation/list-conversatio
 import { runTenantScopedRoute } from "@/server/http/tenant-route";
 
 export async function GET() {
-  return runTenantScopedRoute(async () => ok(await listConversations()));
+  return runTenantScopedRoute(async (user) => ok(await listConversations(user.tenantId)));
 }

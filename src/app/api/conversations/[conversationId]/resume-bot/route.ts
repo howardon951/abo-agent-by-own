@@ -6,8 +6,8 @@ export async function POST(
   _request: Request,
   { params }: { params: Promise<{ conversationId: string }> }
 ) {
-  return runTenantScopedRoute(async () => {
+  return runTenantScopedRoute(async (user) => {
     const { conversationId } = await params;
-    return ok(await resumeConversationBot(conversationId));
+    return ok(await resumeConversationBot(user.tenantId, conversationId));
   });
 }

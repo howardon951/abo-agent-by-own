@@ -1,8 +1,26 @@
 import Link from "next/link";
 import { PageSection } from "@/components/layout/page-section";
-import { DataTable } from "@/components/ui/data-table";
+import { getSessionUser } from "@/lib/auth/session";
+import { listConversations } from "@/server/domain/conversation/list-conversations";
+import { redirect } from "next/navigation";
 
-export default function ConversationsPage() {
+export default async function ConversationsPage() {
+  const user = await getSessionUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  if (user.role === "tenant_owner" && !user.tenantId) {
+    redirect("/setup");
+  }
+
+  if (!user.tenantId) {
+    redirect("/dashboard");
+  }
+
+  const data = await listConversations(user.tenantId);
+
   return (
     <div className="stack" style={{ gap: 24 }}>
       <PageSection title="Conversations" description="查看 bot_active 與 human_active 對話。">
@@ -21,26 +39,29 @@ export default function ConversationsPage() {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>LINE User A</td>
-              <td>bot_active</td>
-              <td>今天營業到幾點？</td>
-              <td>
-                <Link href="/conversations/conv-1" className="button button-secondary">
-                  View
-                </Link>
-              </td>
-            </tr>
-            <tr>
-              <td>LINE User B</td>
-              <td>human_active</td>
-              <td>我要退貨</td>
-              <td>
-                <Link href="/conversations/conv-2" className="button button-secondary">
-                  View
-                </Link>
-              </td>
-            </tr>
+            {data.items.length === 0 ? (
+              <tr>
+                <td colSpan={4} style={{ color: "var(--muted)" }}>
+                  尚無對話紀錄。
+                </td>
+              </tr>
+            ) : (
+              data.items.map((conversation) => (
+                <tr key={conversation.id}>
+                  <td>{conversation.contactDisplayName}</td>
+                  <td>{conversation.status}</td>
+                  <td>{conversation.lastMessageSnippet ?? "-"}</td>
+                  <td>
+                    <Link
+                      href={`/conversations/${conversation.id}`}
+                      className="button button-secondary"
+                    >
+                      View
+                    </Link>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
