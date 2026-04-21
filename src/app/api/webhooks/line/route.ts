@@ -1,6 +1,9 @@
 import { ok, fail } from "@/server/dto/api-response";
-import { verifyLineSignature } from "@/server/services/line/line-signature";
-import { enqueueMessageJob } from "@/server/services/jobs/enqueue";
+import {
+  ingestLineWebhook,
+  LineWebhookPayloadError,
+  LineWebhookSignatureError
+} from "@/server/domain/channel/ingest-line-webhook";
 import { logError, logInfo } from "@/lib/utils/logger";
 
 export async function POST(request: Request) {
@@ -12,14 +15,29 @@ export async function POST(request: Request) {
     bodyLength: body.length
   });
 
-  if (!verifyLineSignature(body, signature)) {
-    logError("line webhook rejected", {
-      reason: "invalid_signature"
+  try {
+    const result = await ingestLineWebhook({
+      body,
+      signature
     });
-    return fail("LINE_SIGNATURE_INVALID", "invalid line signature", 401);
-  }
 
-  const job = await enqueueMessageJob("msg-webhook-demo");
-  logInfo("line webhook enqueued message job", job);
-  return ok({ ok: true });
+    logInfo("line webhook ingested", result);
+    return ok({ ok: true });
+  } catch (error) {
+    if (error instanceof LineWebhookSignatureError) {
+      logError("line webhook rejected", {
+        reason: "invalid_signature"
+      });
+      return fail("LINE_SIGNATURE_INVALID", error.message, 401);
+    }
+
+    if (error instanceof LineWebhookPayloadError) {
+      logError("line webhook rejected", {
+        reason: "invalid_payload"
+      });
+      return fail("VALIDATION_ERROR", error.message, 400);
+    }
+
+    throw error;
+  }
 }

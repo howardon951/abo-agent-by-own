@@ -3,13 +3,28 @@ import { selectScenario } from "@/server/domain/scenario/select-scenario";
 import { retrieveContext } from "@/server/services/retrieval/retriever";
 import { llmProvider } from "@/server/services/llm/llm-provider";
 import { logError, logInfo } from "@/lib/utils/logger";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { lineConfigEncryptionKey } from "@/lib/env";
+import { decryptSecret } from "@/lib/utils/crypto";
 
-export async function processIncomingMessage(input: {
+export type ProcessIncomingMessageInput = {
+  tenantId: string;
   channelId: string;
   externalUserId: string;
   message: string;
-}) {
+  replyToken: string | null;
+};
+
+export type RuntimeRepository = {
+  getChannelAccessToken(tenantId: string, channelId: string): Promise<string>;
+};
+
+export async function processIncomingMessage(
+  input: ProcessIncomingMessageInput,
+  repository: RuntimeRepository = createSupabaseRuntimeRepository()
+) {
   logInfo("runtime processing started", {
+    tenantId: input.tenantId,
     channelId: input.channelId,
     externalUserId: input.externalUserId,
     messageLength: input.message.length
@@ -41,10 +56,20 @@ export async function processIncomingMessage(input: {
       model: completion.model
     });
 
-    await lineClient.replyText({
-      replyToken: "stub-reply-token",
-      text: completion.text
-    });
+    if (input.replyToken) {
+      const channelAccessToken = await repository.getChannelAccessToken(input.tenantId, input.channelId);
+
+      await lineClient.replyText({
+        channelAccessToken,
+        replyToken: input.replyToken,
+        text: completion.text
+      });
+    } else {
+      logInfo("runtime reply skipped", {
+        channelId: input.channelId,
+        reason: "missing_reply_token"
+      });
+    }
 
     logInfo("runtime reply dispatched", {
       channelId: input.channelId,
@@ -65,4 +90,32 @@ export async function processIncomingMessage(input: {
     });
     throw error;
   }
+}
+
+export function createSupabaseRuntimeRepository(): RuntimeRepository {
+  const admin = createAdminSupabaseClient();
+  if (!admin) {
+    throw new Error("Supabase secret key is not configured");
+  }
+
+  return {
+    async getChannelAccessToken(tenantId, channelId) {
+      if (!lineConfigEncryptionKey) {
+        throw new Error("LINE_CONFIG_ENCRYPTION_KEY is not configured");
+      }
+
+      const { data, error } = await admin
+        .from("line_channel_configs")
+        .select("channel_access_token_ciphertext")
+        .eq("tenant_id", tenantId)
+        .eq("channel_id", channelId)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return decryptSecret(data.channel_access_token_ciphertext, lineConfigEncryptionKey);
+    }
+  };
 }

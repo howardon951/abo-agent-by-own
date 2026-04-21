@@ -192,6 +192,12 @@ export function LineIntegrationForm() {
           <span style={{ color: "var(--muted)", fontSize: 13 }}>
             Channel secret 與 access token 已加密儲存，不會回填到表單。
           </span>
+          {currentChannel.webhookUrl.includes("localhost") ? (
+            <div className="panel card" style={{ color: "var(--danger)" }}>
+              目前 webhook URL 仍是 localhost，LINE 無法從外部驗證或送訊息進來。請把
+              `NEXT_PUBLIC_APP_URL` 改成公開網址後重新儲存。
+            </div>
+          ) : null}
         </div>
       ) : null}
       {error ? (

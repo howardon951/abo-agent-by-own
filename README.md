@@ -16,6 +16,16 @@ Worker:
 pnpm worker
 ```
 
+The worker loads `.env.local` through Node's `--env-file`, so it uses the same local credentials as the app.
+
+Worker polling intervals:
+
+```bash
+WORKER_IDLE_POLL_INTERVAL_MS=2000
+WORKER_ACTIVE_POLL_INTERVAL_MS=250
+WORKER_ERROR_POLL_INTERVAL_MS=5000
+```
+
 Build check:
 
 ```bash
@@ -28,11 +38,15 @@ pnpm build
 - Next.js App Router project scaffold
 - Merchant / Platform dashboards
 - Tenant / platform auth guard baseline
-- Agent / scenario APIs wired to Supabase-backed repositories
-- Knowledge / conversation / playground / webhook APIs still partly mock-backed
-- Runtime / retrieval / LLM / LINE service stubs
+- Merchant agent / scenario pages wired to Supabase-backed repositories
+- LINE channel binding persists encrypted credentials in Supabase
+- LINE webhook signature verification, ingestion, and `message_jobs` queue are DB-backed
+- Worker runs as a long-lived polling process and can dispatch real LINE replies
+- Knowledge / conversation / playground / platform reporting flows are still partly mock-backed
+- Runtime scenario routing / retrieval / LLM are still mock-backed
 - Supabase schema draft in `supabase/schema.sql`
 - Product and implementation docs in `docs/`
+- Business flow progress is tracked in `docs/implementation/business-flow-status.md`
 
 ## Important Notes
 
@@ -40,17 +54,18 @@ pnpm build
 - Merchant APIs now enforce tenant-scoped access, except initial setup flow
 - Supabase auth/session uses SSR cookie architecture
 - Agent and scenario domain modules already use repository injection with Supabase admin queries
-- Conversations, knowledge documents, webhook ingestion, runtime orchestration, and resume-bot are still mostly mock/stub implementations
+- LINE webhook ingestion now writes `webhook_events`, `contacts`, `conversations`, `messages`, and `message_jobs`
+- Worker claims queued jobs from Supabase and retries / dead-letters failed jobs
+- LINE Messaging API replies are live, but assistant content still comes from a mock LLM provider
+- Conversations, knowledge documents, platform reporting, and resume-bot are still mostly mock / partial implementations
 - Environment variables follow Supabase's newer `publishable key / secret key` naming
-- LINE webhook signature check is stubbed
 - LLM provider is still a mock implementation
 - Retrieval is still a mock implementation
 
 ## Next Build Steps
 
-1. Implement the core message workflow: webhook -> persisted event/message/job -> worker -> runtime
+1. Persist assistant replies into `messages` and replace mock conversation detail/list flows
 2. Implement conversation state and handoff logic: `bot_active` / `human_active` / resume bot
-3. Replace conversation / knowledge / LINE connect mock flows with tenant-aware DB-backed repositories
-4. Replace LINE signature / reply stubs with real implementation
-5. Replace mock LLM / retrieval with real provider and embeddings
-6. Add Supabase integration tests for auth, onboarding, and tenant isolation
+3. Replace hard-coded scenario routing, mock retrieval, and mock LLM with tenant-aware runtime logic
+4. Build the knowledge document ingestion pipeline: FAQ / URL / PDF -> chunking -> retrieval
+5. Persist llm logs / retrieval logs / usage records and connect them to platform reporting pages

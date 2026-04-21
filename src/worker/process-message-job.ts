@@ -1,12 +1,30 @@
 import { processIncomingMessage } from "@/server/domain/runtime/process-incoming-message";
-import { claimNextJob } from "@/server/services/jobs/claim-job";
+import type { ClaimedMessageJob } from "@/server/services/jobs/claim-job";
+import { claimNextJob, completeJob, failJob } from "@/server/services/jobs/claim-job";
 import { logError, logInfo } from "@/lib/utils/logger";
 
-export async function processMessageJob() {
+type ProcessMessageJobDependencies = {
+  claimNextJob: typeof claimNextJob;
+  processIncomingMessage: typeof processIncomingMessage;
+  completeJob: typeof completeJob;
+  failJob: typeof failJob;
+};
+
+const defaultDependencies: ProcessMessageJobDependencies = {
+  claimNextJob,
+  processIncomingMessage,
+  completeJob,
+  failJob
+};
+
+export async function processMessageJob(
+  dependencies: ProcessMessageJobDependencies = defaultDependencies
+) {
   logInfo("worker polling message job");
+  let job: ClaimedMessageJob | null = null;
 
   try {
-    const job = await claimNextJob();
+    job = await dependencies.claimNextJob();
     if (!job) {
       logInfo("worker idle");
       return { status: "idle" as const };
@@ -18,11 +36,15 @@ export async function processMessageJob() {
       channelId: job.channelId
     });
 
-    const result = await processIncomingMessage({
+    const result = await dependencies.processIncomingMessage({
+      tenantId: job.tenantId,
       channelId: job.channelId,
       externalUserId: job.externalUserId,
-      message: job.message
+      message: job.message,
+      replyToken: job.replyToken
     });
+
+    await dependencies.completeJob(job.id);
 
     logInfo("worker completed message job", {
       jobId: job.id,
@@ -31,9 +53,21 @@ export async function processMessageJob() {
 
     return result;
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const retryable = !isNonRetryableJobError(message);
     logError("worker failed message job", {
-      error: error instanceof Error ? error.message : String(error)
+      error: message,
+      retryable
     });
+
+    if (job) {
+      await dependencies.failJob(job, message, { retryable });
+    }
+
     throw error;
   }
+}
+
+function isNonRetryableJobError(message: string) {
+  return message.includes("LINE reply failed: 400") && message.includes("Invalid reply token");
 }

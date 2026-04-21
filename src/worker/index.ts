@@ -1,8 +1,28 @@
-import { processMessageJob } from "@/worker/process-message-job";
+import { logInfo } from "@/lib/utils/logger";
+import { resolveWorkerPollConfig, runWorkerLoop } from "@/worker/polling-worker";
 
 async function main() {
-  const result = await processMessageJob();
-  console.log(JSON.stringify(result, null, 2));
+  const config = resolveWorkerPollConfig();
+  let stopRequested = false;
+
+  const stop = (signal: string) => {
+    if (stopRequested) {
+      return;
+    }
+
+    stopRequested = true;
+    logInfo("worker shutdown requested", { signal });
+  };
+
+  process.on("SIGINT", () => stop("SIGINT"));
+  process.on("SIGTERM", () => stop("SIGTERM"));
+
+  await runWorkerLoop(
+    {
+      shouldStop: () => stopRequested
+    },
+    config
+  );
 }
 
 main().catch((error) => {
