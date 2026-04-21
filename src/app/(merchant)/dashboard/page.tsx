@@ -30,37 +30,39 @@ export default async function MerchantDashboardPage() {
 
   return (
     <div className="stack" style={{ gap: 24 }}>
-      <PageSection title="Merchant Dashboard" description="商家後台總覽。">
+      <PageSection
+        title="Overview"
+        description="先看目前 bot 是否已具備上線條件，再決定下一步要補 Launch、Behavior 還是 Inbox。"
+      >
         <div className="panel card">
-          <strong>Current session</strong>
-          <p style={{ marginBottom: 0, color: "var(--muted)" }}>
-            {user
-              ? `${user.email} / role=${user.role} / tenant=${user.tenantId ?? "-"}`
-              : "尚未登入或尚未配置 Supabase session"}
-          </p>
+          <div className="stack" style={{ gap: 8 }}>
+            <span className="app-sidebar-label">Workspace Summary</span>
+            <strong style={{ fontSize: 24 }}>{user.tenantId ?? "-"}</strong>
+            <p style={{ marginBottom: 0, color: "var(--muted)" }}>
+              你正在管理這個 tenant 的 LINE AI 助手。先確認 LINE 已連、知識庫已建立，再回頭調整
+              Agent 與 Scenarios。
+            </p>
+          </div>
         </div>
         <div className="panel card stack" style={{ gap: 12 }}>
-          <strong>Quick Access</strong>
+          <strong>Next Actions</strong>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <Link href="/line" className="button button-primary">
+              Connect LINE
+            </Link>
+            <Link href="/knowledge/new" className="button button-secondary">
+              Add Knowledge
+            </Link>
             <Link href="/agent" className="button button-secondary">
-              Agent Settings
-            </Link>
-            <Link href="/scenarios" className="button button-secondary">
-              Scenario Rules
-            </Link>
-            <Link href="/knowledge" className="button button-secondary">
-              Knowledge Base
+              Tune Agent
             </Link>
             <Link href="/conversations" className="button button-secondary">
-              Conversations
-            </Link>
-            <Link href="/line" className="button button-secondary">
-              LINE Integration
-            </Link>
-            <Link href="/playground" className="button button-secondary">
-              Playground
+              Review Inbox
             </Link>
           </div>
+          <span style={{ color: "var(--muted)", fontSize: 14 }}>
+            導覽已改成 Launch / Behavior / Inbox，讓商家可以順著上線流程操作。
+          </span>
         </div>
         <div className="grid-3">
           <StatCard
@@ -76,6 +78,37 @@ export default async function MerchantDashboardPage() {
           />
         </div>
       </PageSection>
+      <section className="grid-2">
+        <div className="panel card stack">
+          <span className="app-sidebar-label">Launch Checklist</span>
+          <strong>Go-Live Readiness</strong>
+          <div className="stack" style={{ gap: 10 }}>
+            <ChecklistItem
+              done={knowledgeDocuments.documents.length > 0}
+              title="Knowledge Base"
+              description="至少建立一份 FAQ / URL 文件，讓回覆不是空白 bot。"
+            />
+            <ChecklistItem
+              done={conversations.items.length > 0}
+              title="Inbox Tracking"
+              description="已開始累積真實對話，後台可觀察人工接手與 bot reply。"
+            />
+            <ChecklistItem
+              done={openHandoffs >= 0}
+              title="Handoff Flow"
+              description="對話 detail 已可 Resume AI，human_active 流程已成立。"
+            />
+          </div>
+        </div>
+        <div className="panel card stack">
+          <span className="app-sidebar-label">What This Console Covers</span>
+          <strong>Operations Scope</strong>
+          <p style={{ margin: 0, color: "var(--muted)" }}>
+            這個商家後台主要負責三件事：上線 LINE、配置回覆邏輯、處理人工接手中的對話。複雜
+            debug 與平台級報表仍放在後續頁面。
+          </p>
+        </div>
+      </section>
       <DataTable
         columns={[
           { key: "contact", label: "Contact" },
@@ -85,6 +118,34 @@ export default async function MerchantDashboardPage() {
         ]}
         rows={dashboardRows}
       />
+    </div>
+  );
+}
+
+function ChecklistItem({
+  done,
+  title,
+  description
+}: {
+  done: boolean;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div
+      className="panel card"
+      style={{
+        borderColor: done
+          ? "color-mix(in srgb, var(--success) 35%, var(--border))"
+          : "var(--border)"
+      }}
+    >
+      <div className="stack" style={{ gap: 6 }}>
+        <strong>
+          {done ? "Ready" : "Pending"} / {title}
+        </strong>
+        <span style={{ color: "var(--muted)", fontSize: 14 }}>{description}</span>
+      </div>
     </div>
   );
 }

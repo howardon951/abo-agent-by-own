@@ -1,60 +1,34 @@
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth/session";
 import { signOutAction } from "@/app/(auth)/server-actions";
-import { buildAppChromeNav, getAppChromeRoleLabel } from "@/components/layout/app-chrome-nav";
+import {
+  buildAppChromeNavSections,
+  getAppChromeRoleLabel
+} from "@/components/layout/app-chrome-nav";
+import { AppChromeSidebar } from "@/components/layout/app-chrome-sidebar";
 
 export async function AppChrome({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
-  const navGroups = buildAppChromeNav(user);
+  const navSections = buildAppChromeNavSections(user);
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        padding: "24px 0 40px"
-      }}
-    >
-      <header className="page-shell" style={{ marginBottom: 24 }}>
-        <div
-          className="panel"
-          style={{
-            padding: 18,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 16,
-            flexWrap: "wrap"
-          }}
-        >
+    <div className="app-shell">
+      <AppChromeSidebar user={user} sections={navSections} />
+      <div className="app-main">
+        <header className="app-topbar panel">
           <div className="stack" style={{ gap: 4 }}>
-            <Link href="/" style={{ fontSize: 22, fontWeight: 700 }}>
-              Abo Agent
-            </Link>
-            <span style={{ color: "var(--muted)", fontSize: 14 }}>
-              LINE AI assistant for merchant operations
-            </span>
+            <span className="app-sidebar-label">Merchant Operations Console</span>
+            <strong style={{ fontSize: 20 }}>
+              {user?.tenantId ? "Operate your LINE assistant" : "Set up your workspace"}
+            </strong>
           </div>
-          <nav style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            {navGroups.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="button button-secondary"
-                style={{ padding: "10px 14px" }}
-              >
-                {item.label}
-              </Link>
-            ))}
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <Link href="/" className="button button-secondary">
+              Public Home
+            </Link>
             {user ? (
               <>
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 2,
-                    marginLeft: 4
-                  }}
-                >
+                <div className="stack" style={{ gap: 2, textAlign: "right" }}>
                   <span style={{ color: "var(--muted)", fontSize: 14 }}>{user.email}</span>
                   <span style={{ color: "var(--muted)", fontSize: 12 }}>
                     {getAppChromeRoleLabel(user)}
@@ -66,11 +40,20 @@ export async function AppChrome({ children }: { children: React.ReactNode }) {
                   </button>
                 </form>
               </>
-            ) : null}
-          </nav>
-        </div>
-      </header>
-      <main className="page-shell">{children}</main>
+            ) : (
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <Link href="/login" className="button button-secondary">
+                  Login
+                </Link>
+                <Link href="/signup" className="button button-primary">
+                  Signup
+                </Link>
+              </div>
+            )}
+          </div>
+        </header>
+        <main className="app-content">{children}</main>
+      </div>
     </div>
   );
 }

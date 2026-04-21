@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import type { SessionUser } from "@/lib/auth/session";
 import {
   buildAppChromeNav,
+  buildAppChromeNavSections,
   getAppChromeRoleLabel
 } from "@/components/layout/app-chrome-nav";
 
@@ -27,49 +28,94 @@ const platformAdmin: SessionUser = {
 };
 
 test("shows login/signup nav for signed-out visitors", () => {
-  assert.deepEqual(buildAppChromeNav(null), [
-    { href: "/", label: "Home" },
-    { href: "/pricing", label: "Pricing" },
-    { href: "/login", label: "Login" },
-    { href: "/signup", label: "Signup" }
+  assert.deepEqual(buildAppChromeNavSections(null), [
+    {
+      title: "Explore",
+      items: [
+        { href: "/", label: "Home" },
+        { href: "/pricing", label: "Pricing" },
+        { href: "/contact", label: "Contact" }
+      ]
+    },
+    {
+      title: "Account",
+      items: [
+        { href: "/login", label: "Login" },
+        { href: "/signup", label: "Signup" }
+      ]
+    }
   ]);
 });
 
 test("routes signed-in tenant owner to merchant dashboard nav", () => {
-  assert.deepEqual(buildAppChromeNav(tenantOwner), [
-    { href: "/", label: "Home" },
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/agent", label: "Agent" },
-    { href: "/scenarios", label: "Scenarios" },
-    { href: "/knowledge", label: "Knowledge" },
-    { href: "/conversations", label: "Conversations" },
-    { href: "/line", label: "LINE" },
-    { href: "/playground", label: "Playground" },
-    { href: "/pricing", label: "Pricing" }
+  assert.deepEqual(buildAppChromeNavSections(tenantOwner), [
+    {
+      title: "Overview",
+      items: [{ href: "/dashboard", label: "Overview" }]
+    },
+    {
+      title: "Launch",
+      items: [
+        { href: "/line", label: "LINE Channel" },
+        { href: "/knowledge", label: "Knowledge Base" }
+      ]
+    },
+    {
+      title: "Behavior",
+      items: [
+        { href: "/agent", label: "Agent Profile" },
+        { href: "/scenarios", label: "Response Scenarios" }
+      ]
+    },
+    {
+      title: "Inbox",
+      items: [{ href: "/conversations", label: "Conversations" }]
+    },
+    {
+      title: "Tools",
+      items: [{ href: "/playground", label: "Test Playground" }]
+    },
+    {
+      title: "Admin",
+      items: [{ href: "/settings", label: "Settings" }]
+    }
   ]);
 });
 
 test("routes setup-pending users to setup nav instead of merchant dashboard", () => {
-  assert.deepEqual(buildAppChromeNav(setupPendingOwner), [
-    { href: "/", label: "Home" },
-    { href: "/setup", label: "Setup" },
-    { href: "/pricing", label: "Pricing" }
+  assert.deepEqual(buildAppChromeNavSections(setupPendingOwner), [
+    {
+      title: "Get Started",
+      items: [{ href: "/setup", label: "Workspace Setup" }]
+    },
+    {
+      title: "Reference",
+      items: [{ href: "/pricing", label: "Pricing" }]
+    }
   ]);
 });
 
 test("adds platform nav entry only for platform admins", () => {
-  assert.deepEqual(buildAppChromeNav(platformAdmin), [
-    { href: "/", label: "Home" },
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/agent", label: "Agent" },
-    { href: "/scenarios", label: "Scenarios" },
-    { href: "/knowledge", label: "Knowledge" },
-    { href: "/conversations", label: "Conversations" },
-    { href: "/line", label: "LINE" },
-    { href: "/playground", label: "Playground" },
-    { href: "/platform", label: "Platform" },
-    { href: "/pricing", label: "Pricing" }
-  ]);
+  const sections = buildAppChromeNavSections(platformAdmin);
+
+  assert.equal(sections.at(-1)?.title, "Platform");
+  assert.deepEqual(sections.at(-1)?.items, [{ href: "/platform", label: "Platform Console" }]);
+});
+
+test("keeps a flattened nav export for compatibility", () => {
+  assert.deepEqual(
+    buildAppChromeNav(tenantOwner).map((item) => item.label),
+    [
+      "Overview",
+      "LINE Channel",
+      "Knowledge Base",
+      "Agent Profile",
+      "Response Scenarios",
+      "Conversations",
+      "Test Playground",
+      "Settings"
+    ]
+  );
 });
 
 test("formats the session role label for each authenticated user state", () => {
