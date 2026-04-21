@@ -172,6 +172,19 @@ pnpm test:backend
 2. 沒有 membership 的登入者仍會被視為 tenant owner，但沒有 tenantId
 3. platform admin 會被解析為 `platform_admin`，並保留 tenant context
 
+### Auth Flow / App Chrome Navigation
+
+測試檔案：
+
+- [auth-flow.test.ts](/Users/howardchi/Desktop/2026/abo-agent-by-own/tests/backend/auth/auth-flow.test.ts)
+- [app-chrome-nav.test.ts](/Users/howardchi/Desktop/2026/abo-agent-by-own/tests/backend/layout/app-chrome-nav.test.ts)
+
+目前覆蓋：
+
+1. 登入 / 註冊後會依 tenant 狀態導到 `dashboard`、`setup` 或 `login`
+2. setup pending 使用者只看到 setup 導覽
+3. platform admin 會看到 platform nav，tenant owner 不會誤看到多餘入口
+
 ### Auth Guards / Tenant Route Boundary
 
 測試檔案：
@@ -200,16 +213,58 @@ pnpm test:backend
 2. scenario 列表與更新會帶 tenant 與 scenario id 進 repository
 3. 規則式 scenario routing 的優先序與 fallback
 
+### LINE Channel / Secret Handling
+
+測試檔案：
+
+- [connect-line-channel.test.ts](/Users/howardchi/Desktop/2026/abo-agent-by-own/tests/backend/channel/connect-line-channel.test.ts)
+- [crypto.test.ts](/Users/howardchi/Desktop/2026/abo-agent-by-own/tests/backend/utils/crypto.test.ts)
+
+目前覆蓋：
+
+1. 首次綁定會建立 primary LINE channel 並加密儲存憑證
+2. 重複綁定會更新既有 channel / config，而不是重複建資料
+3. `GET /api/line/connect` 對前端只暴露安全欄位，不回傳 secret / token
+4. encryption round-trip 與錯誤 key case
+
+### Webhook Ingestion / LINE Signature
+
+測試檔案：
+
+- [ingest-line-webhook.test.ts](/Users/howardchi/Desktop/2026/abo-agent-by-own/tests/backend/channel/ingest-line-webhook.test.ts)
+- [line-signature.test.ts](/Users/howardchi/Desktop/2026/abo-agent-by-own/tests/backend/line/line-signature.test.ts)
+
+目前覆蓋：
+
+1. LINE signature HMAC-SHA256 計算與驗證
+2. valid text webhook 會寫入 event / message / job
+3. non-text event 只記錄 event，不進 runtime queue
+4. invalid signature 會在 ingestion 前直接拒絕
+
+### Worker / Queue Runtime
+
+測試檔案：
+
+- [process-message-job.test.ts](/Users/howardchi/Desktop/2026/abo-agent-by-own/tests/backend/worker/process-message-job.test.ts)
+- [polling-worker.test.ts](/Users/howardchi/Desktop/2026/abo-agent-by-own/tests/backend/worker/polling-worker.test.ts)
+
+目前覆蓋：
+
+1. worker idle / claim / complete / fail 基本流程
+2. polling worker 的 idle / active / error interval
+3. runtime 失敗時的 retryable 與 non-retryable 分支
+4. `Invalid reply token` 類錯誤不再重試
+
 ## 6. 下一步建議補的測試
 
 優先順序：
 
 1. `getSessionUser()` integration tests
 2. `/api/tenant/setup` integration / route tests
-3. webhook ingestion unit tests
-4. handoff keyword unit tests
-5. runtime orchestration unit tests
-6. conversation state transition tests
+3. conversation repository / API integration tests
+4. handoff keyword 與 conversation state transition tests
+5. assistant reply persistence tests
+6. knowledge ingestion / document job tests
 
 ## 7. 對這個專案的具體建議
 
@@ -222,8 +277,8 @@ pnpm test:backend
 中期：
 
 - 建一組 Supabase integration test 環境
-- 先補 onboarding / auth / tenant isolation 的 integration tests
-- runtime 與 webhook 改為真實資料流後，再補 workflow integration tests
+- 先補 onboarding / auth / tenant isolation / conversation read model 的 integration tests
+- runtime 與 webhook 主幹已走真實資料流，下一步補 workflow integration tests
 
 長期：
 

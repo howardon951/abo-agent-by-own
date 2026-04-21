@@ -1,8 +1,8 @@
 # Abo Agent MVP Build Spec
 
 - Version: v1.0
-- Date: 2026-04-20
-- Status: Finalized for MVP build
+- Date: 2026-04-21
+- Status: Finalized for MVP build, with implementation checkpoint updated
 - Scope: `abo-agent-by-own` current repository context
 
 ## 1. Product Definition
@@ -400,10 +400,10 @@ src/
 
 ### 10.2 Repo-Specific Implementation Notes
 
-- 現有 `src/server/domain/runtime/process-incoming-message.ts` 要升級成真正 orchestrator。
-- 現有 `src/server/services/jobs/enqueue.ts`、`claim-job.ts` 目前是 stub，後續應改成 DB-backed queue repository。
-- `src/app/api/webhooks/line/route.ts` 目前只做 signature stub + enqueue demo，應改成正式 ingestion flow。
-- `src/server/services/line/line-signature.ts` 與 `line-client.ts` 要從 stub 改成真實 LINE SDK adapter。
+- 現有 `src/server/domain/runtime/process-incoming-message.ts` 已能串起 scenario 選擇、mock retrieval、mock LLM 與真實 LINE reply，但仍要補 assistant message persistence、handoff state 與真實 provider。
+- `src/server/services/jobs/enqueue.ts`、`claim-job.ts` 已改成 DB-backed queue repository，worker 也已是常駐 polling 模式。
+- `src/app/api/webhooks/line/route.ts` 已走正式 signature verify + ingestion flow，會落 `webhook_events / contacts / conversations / messages / message_jobs`。
+- `src/server/services/line/line-signature.ts` 與 `line-client.ts` 已接真實驗簽與 reply API；目前仍待補 webhook verified timestamp 與更多錯誤分類。
 - `src/server/domain/conversation/*`、`knowledge/*` 目前部分仍 mock-backed，要改為 tenant-safe repository。
 
 ## 11. API Boundary for MVP
@@ -441,6 +441,9 @@ src/
 
 ### Phase 0: Foundation Hardening
 
+Status:
+已完成
+
 Goal:
 把 repo 內已有的 schema、auth guard、route skeleton 對齊成可持續開發的底盤。
 
@@ -452,6 +455,9 @@ Deliverables:
 - 確認 tenant guard / platform guard 測試能過
 
 ### Phase 1: Webhook Main Path
+
+Status:
+已完成
 
 Goal:
 打通最核心的 `webhook -> conversation/message -> message_jobs -> worker` 主幹。
@@ -471,6 +477,9 @@ Exit Criteria:
 
 ### Phase 2: LINE Reply and Handoff
 
+Status:
+部分完成
+
 Goal:
 先把可控自動回覆與轉真人安全機制做穩，不先追求複雜 AI。
 
@@ -488,6 +497,9 @@ Exit Criteria:
 
 ### Phase 3: Knowledge and Retrieval
 
+Status:
+未完成
+
 Goal:
 讓回覆不只靠靜態 prompt，而能使用商家資料。
 
@@ -504,6 +516,9 @@ Exit Criteria:
 - Playground 與 runtime 都能查到可用的 top-k chunks。
 
 ### Phase 4: Prompt Assembly and LLM
+
+Status:
+未完成
 
 Goal:
 把 scenario、retrieval、brand config 接進回覆品質主流程。
@@ -523,6 +538,9 @@ Exit Criteria:
 
 ### Phase 5: Merchant Admin MVP
 
+Status:
+部分完成
+
 Goal:
 把商家後台做成可自己配置、可自己 debug。
 
@@ -540,6 +558,9 @@ Exit Criteria:
 - 商家可自行完成設定、測試、查看對話與恢復 AI。
 
 ### Phase 6: Platform Admin and Operations
+
+Status:
+未完成
 
 Goal:
 讓平台方可以代營運、排錯、看 usage。
@@ -589,3 +610,21 @@ Exit Criteria:
 `1 tenant -> 1 active agent -> 1 primary LINE channel -> 1 default knowledge base -> async message runtime`
 
 只要這條主線先做穩，商家就能完成設定、接上 LINE、用知識庫回答 FAQ、必要時轉真人，平台也有足夠的 observability 來排錯與代營運。這就是這個 repo 現階段最正確的 MVP build target。
+
+## 16. Implementation Checkpoint on 2026-04-21
+
+已完成：
+
+- 商家登入導流、tenant setup、agent / scenarios / line 設定頁已接真實 API
+- LINE channel 憑證已加密寫入 `channels` / `line_channel_configs`
+- webhook 已完成驗簽、入庫、去重與 `message_jobs` enqueue
+- worker 已是常駐 polling process，會 claim / complete / fail / dead-letter jobs
+- LINE reply API 已接通，可把 mock runtime 產生的回覆送回 LINE
+
+仍待完成：
+
+- handoff keyword / `human_active` / `Resume AI` 真實狀態流
+- assistant reply 寫回 `messages`
+- knowledge documents / chunking / retrieval
+- 真實 LLM provider、prompt versioning、usage / llm / retrieval logs
+- conversation list / detail、platform logs / usage 與其他後台 read model

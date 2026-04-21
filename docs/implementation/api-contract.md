@@ -211,7 +211,33 @@ Response:
 
 - 刪除文件與關聯 chunks
 
-### 2.9 POST `/api/line/connect`
+### 2.9 GET `/api/line/connect`
+
+用途：
+
+- 讀取目前 tenant 的 LINE 綁定狀態
+- 僅回傳安全欄位，不回傳 secret / access token
+
+Response:
+
+```json
+{
+  "data": {
+    "channel": {
+      "id": "uuid",
+      "provider": "line",
+      "name": "Abo LINE OA",
+      "channelIdExternal": "2001234567",
+      "status": "connected",
+      "webhookUrl": "https://app.example.com/api/webhooks/line",
+      "webhookVerifiedAt": null
+    }
+  },
+  "error": null
+}
+```
+
+### 2.10 POST `/api/line/connect`
 
 Request:
 
@@ -232,15 +258,22 @@ Response:
     "channel": {
       "id": "uuid",
       "provider": "line",
+      "name": "Abo LINE OA",
+      "channelIdExternal": "2001234567",
       "status": "connected",
-      "webhookUrl": "https://app.example.com/api/webhooks/line"
+      "webhookUrl": "https://app.example.com/api/webhooks/line",
+      "webhookVerifiedAt": null
     }
   },
   "error": null
 }
 ```
 
-### 2.10 GET `/api/conversations`
+說明：
+
+- `channelSecret` 與 `channelAccessToken` 為 write-only，成功儲存後不會再回填給前端。
+
+### 2.11 GET `/api/conversations`
 
 Query params:
 
@@ -268,7 +301,7 @@ Response:
 }
 ```
 
-### 2.11 GET `/api/conversations/:conversationId`
+### 2.12 GET `/api/conversations/:conversationId`
 
 Response:
 
@@ -296,7 +329,7 @@ Response:
 }
 ```
 
-### 2.12 POST `/api/conversations/:conversationId/resume-bot`
+### 2.13 POST `/api/conversations/:conversationId/resume-bot`
 
 用途：
 
@@ -316,7 +349,7 @@ Response:
 }
 ```
 
-### 2.13 POST `/api/playground/run`
+### 2.14 POST `/api/playground/run`
 
 Request:
 
@@ -429,7 +462,10 @@ Response:
 
 ```json
 {
-  "ok": true
+  "data": {
+    "ok": true
+  },
+  "error": null
 }
 ```
 
@@ -446,4 +482,3 @@ Response:
 - `LLM_PROVIDER_ERROR`
 - `RATE_LIMITED`
 - `INTERNAL_ERROR`
-
