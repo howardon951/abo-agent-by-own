@@ -38,7 +38,12 @@ test("shows login/signup nav for signed-out visitors", () => {
 test("routes signed-in tenant owner to merchant dashboard nav", () => {
   assert.deepEqual(buildAppChromeNav(tenantOwner), [
     { href: "/", label: "Home" },
-    { href: "/dashboard", label: "Merchant" },
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/agent", label: "Agent" },
+    { href: "/scenarios", label: "Scenarios" },
+    { href: "/knowledge", label: "Knowledge" },
+    { href: "/conversations", label: "Conversations" },
+    { href: "/line", label: "LINE" },
     { href: "/playground", label: "Playground" },
     { href: "/pricing", label: "Pricing" }
   ]);
@@ -48,7 +53,6 @@ test("routes setup-pending users to setup nav instead of merchant dashboard", ()
   assert.deepEqual(buildAppChromeNav(setupPendingOwner), [
     { href: "/", label: "Home" },
     { href: "/setup", label: "Setup" },
-    { href: "/playground", label: "Playground" },
     { href: "/pricing", label: "Pricing" }
   ]);
 });
@@ -56,7 +60,12 @@ test("routes setup-pending users to setup nav instead of merchant dashboard", ()
 test("adds platform nav entry only for platform admins", () => {
   assert.deepEqual(buildAppChromeNav(platformAdmin), [
     { href: "/", label: "Home" },
-    { href: "/dashboard", label: "Merchant" },
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/agent", label: "Agent" },
+    { href: "/scenarios", label: "Scenarios" },
+    { href: "/knowledge", label: "Knowledge" },
+    { href: "/conversations", label: "Conversations" },
+    { href: "/line", label: "LINE" },
     { href: "/playground", label: "Playground" },
     { href: "/platform", label: "Platform" },
     { href: "/pricing", label: "Pricing" }

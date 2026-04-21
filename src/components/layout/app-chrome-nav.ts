@@ -6,17 +6,23 @@ export type AppChromeNavItem = {
 };
 
 export function buildAppChromeNav(user: SessionUser | null): AppChromeNavItem[] {
+  const merchantNav = user?.tenantId
+    ? [
+        { href: "/dashboard", label: "Dashboard" },
+        { href: "/agent", label: "Agent" },
+        { href: "/scenarios", label: "Scenarios" },
+        { href: "/knowledge", label: "Knowledge" },
+        { href: "/conversations", label: "Conversations" },
+        { href: "/line", label: "LINE" },
+        { href: "/playground", label: "Playground" }
+      ]
+    : user
+      ? [{ href: "/setup", label: "Setup" }]
+      : [];
+
   return [
     { href: "/", label: "Home" },
-    ...(user
-      ? [
-          {
-            href: user.tenantId ? "/dashboard" : "/setup",
-            label: user.tenantId ? "Merchant" : "Setup"
-          },
-          { href: "/playground", label: "Playground" }
-        ]
-      : []),
+    ...merchantNav,
     ...(user?.role === "platform_admin" ? [{ href: "/platform", label: "Platform" }] : []),
     { href: "/pricing", label: "Pricing" },
     ...(!user

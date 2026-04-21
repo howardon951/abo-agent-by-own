@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageSection } from "@/components/layout/page-section";
 import { StatCard } from "@/components/ui/stat-card";
 import { DataTable } from "@/components/ui/data-table";
@@ -40,6 +41,29 @@ export default async function MerchantDashboardPage() {
               ? `${user.email} / role=${user.role} / tenant=${user.tenantId ?? "-"}`
               : "尚未登入或尚未配置 Supabase session"}
           </p>
+        </div>
+        <div className="panel card stack" style={{ gap: 12 }}>
+          <strong>Quick Access</strong>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <Link href="/agent" className="button button-secondary">
+              Agent Settings
+            </Link>
+            <Link href="/scenarios" className="button button-secondary">
+              Scenario Rules
+            </Link>
+            <Link href="/knowledge" className="button button-secondary">
+              Knowledge Base
+            </Link>
+            <Link href="/conversations" className="button button-secondary">
+              Conversations
+            </Link>
+            <Link href="/line" className="button button-secondary">
+              LINE Integration
+            </Link>
+            <Link href="/playground" className="button button-secondary">
+              Playground
+            </Link>
+          </div>
         </div>
         <div className="grid-3">
           <StatCard label="Messages Today" value="42" hint="LINE webhook -> runtime" />

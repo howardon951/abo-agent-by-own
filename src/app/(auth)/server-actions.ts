@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { resolvePostSignInPath, resolvePostSignUpFlow } from "@/lib/auth/auth-flow";
 
 function redirectWithMessage(path: string, message: string): never {
   redirect(`${path}?message=${encodeURIComponent(message)}`);
@@ -42,14 +43,20 @@ export async function signInAction(formData: FormData) {
     redirect("/dashboard");
   }
 
-  const { data: tenantMember } = await admin
-    .from("tenant_members")
-    .select("tenant_id")
-    .eq("user_id", user.id)
-    .limit(1)
-    .maybeSingle();
+  const path = await resolvePostSignInPath(user.id, {
+    async findTenantMembership(userId) {
+      const { data } = await admin
+        .from("tenant_members")
+        .select("tenant_id")
+        .eq("user_id", userId)
+        .limit(1)
+        .maybeSingle();
 
-  redirect(tenantMember?.tenant_id ? "/dashboard" : "/setup");
+      return data?.tenant_id ? { tenantId: data.tenant_id } : null;
+    }
+  });
+
+  redirect(path);
 }
 
 export async function signUpAction(formData: FormData) {
@@ -83,11 +90,13 @@ export async function signUpAction(formData: FormData) {
     redirectWithMessage("/signup", error.message);
   }
 
-  if (!data.session) {
-    redirectWithMessage("/login", "註冊成功，請先至信箱完成驗證後登入");
+  const nextStep = resolvePostSignUpFlow(Boolean(data.session));
+
+  if (nextStep.message) {
+    redirectWithMessage(nextStep.redirectPath, nextStep.message);
   }
 
-  redirect("/setup");
+  redirect(nextStep.redirectPath);
 }
 
 export async function signOutAction() {
