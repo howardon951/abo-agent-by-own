@@ -1,4 +1,5 @@
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { requireAdminClient } from "@/lib/supabase/admin";
+import { pickDefined } from "@/lib/utils/object";
 
 export type AgentScenario = {
   id: string;
@@ -27,35 +28,30 @@ export type ScenarioRepository = {
 
 export async function listScenarios(
   tenantId: string,
-  repository: ScenarioRepository = createSupabaseScenarioRepository()
+  repository: ScenarioRepository = createRepository()
 ) {
-  return { scenarios: await repository.listScenarios(tenantId) };
+  return repository.listScenarios(tenantId);
 }
 
 export async function updateScenario(
   tenantId: string,
   scenarioId: string,
   input: UpdateScenarioInput,
-  repository: ScenarioRepository = createSupabaseScenarioRepository()
+  repository: ScenarioRepository = createRepository()
 ) {
-  return { scenario: await repository.updateScenario(tenantId, scenarioId, input) };
+  return repository.updateScenario(tenantId, scenarioId, input);
 }
 
-export function createSupabaseScenarioRepository(): ScenarioRepository {
-  const admin = createAdminSupabaseClient();
-  if (!admin) {
-    throw new Error("Supabase secret key is not configured");
-  }
-
-  const selectColumns =
-    "id, scenario_type, name, routing_keywords, prompt_config, is_enabled, sort_order";
+function createRepository(): ScenarioRepository {
+  const admin = requireAdminClient();
+  const columns = "id, scenario_type, name, routing_keywords, prompt_config, is_enabled, sort_order";
 
   return {
     async listScenarios(tenantId) {
       const agentId = await getActiveAgentId(admin, tenantId);
       const { data, error } = await admin
         .from("agent_scenarios")
-        .select(selectColumns)
+        .select(columns)
         .eq("tenant_id", tenantId)
         .eq("agent_id", agentId)
         .order("sort_order", { ascending: true });
@@ -64,16 +60,22 @@ export function createSupabaseScenarioRepository(): ScenarioRepository {
         throw error;
       }
 
-      return data.map(mapScenarioRow);
+      return data.map(mapRow);
     },
 
     async updateScenario(tenantId, scenarioId, input) {
       const agentId = await getActiveAgentId(admin, tenantId);
-      const updates = toScenarioUpdateRow(input);
+      const updates = pickDefined({
+        name: input.name,
+        routing_keywords: input.routingKeywords,
+        prompt_config: input.promptConfig,
+        is_enabled: input.isEnabled
+      });
+
       if (Object.keys(updates).length === 0) {
         const { data, error } = await admin
           .from("agent_scenarios")
-          .select(selectColumns)
+          .select(columns)
           .eq("tenant_id", tenantId)
           .eq("agent_id", agentId)
           .eq("id", scenarioId)
@@ -83,7 +85,7 @@ export function createSupabaseScenarioRepository(): ScenarioRepository {
           throw error;
         }
 
-        return mapScenarioRow(data);
+        return mapRow(data);
       }
 
       const { data, error } = await admin
@@ -92,20 +94,20 @@ export function createSupabaseScenarioRepository(): ScenarioRepository {
         .eq("tenant_id", tenantId)
         .eq("agent_id", agentId)
         .eq("id", scenarioId)
-        .select(selectColumns)
+        .select(columns)
         .single();
 
       if (error) {
         throw error;
       }
 
-      return mapScenarioRow(data);
+      return mapRow(data);
     }
   };
 }
 
 async function getActiveAgentId(
-  admin: NonNullable<ReturnType<typeof createAdminSupabaseClient>>,
+  admin: ReturnType<typeof requireAdminClient>,
   tenantId: string
 ) {
   const { data, error } = await admin
@@ -122,36 +124,14 @@ async function getActiveAgentId(
   return data.id;
 }
 
-function toScenarioUpdateRow(input: UpdateScenarioInput) {
-  const updates: Record<string, unknown> = {};
-
-  if (input.name !== undefined) {
-    updates.name = input.name;
-  }
-
-  if (input.routingKeywords !== undefined) {
-    updates.routing_keywords = input.routingKeywords;
-  }
-
-  if (input.promptConfig !== undefined) {
-    updates.prompt_config = input.promptConfig;
-  }
-
-  if (input.isEnabled !== undefined) {
-    updates.is_enabled = input.isEnabled;
-  }
-
-  return updates;
-}
-
-function mapScenarioRow(row: {
+function mapRow(row: {
   id: string;
   scenario_type: string;
   name: string;
   routing_keywords: string[] | null;
   prompt_config: Record<string, unknown> | null;
   is_enabled: boolean;
-}) {
+}): AgentScenario {
   return {
     id: row.id,
     scenarioType: row.scenario_type,

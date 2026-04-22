@@ -3,7 +3,7 @@ import { AgentSettingsForm } from "@/components/merchant/agent-settings-form";
 import { MerchantPageHero } from "@/components/merchant/merchant-page-hero";
 import { getSessionUser } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
-import { getCurrentAgent } from "@/server/domain/agent/get-current-agent";
+import { getCurrentAgent } from "@/server/domain/agent/agent";
 
 export default async function AgentPage() {
   const user = await getSessionUser();
@@ -35,18 +35,18 @@ export default async function AgentPage() {
         stats={[
           {
             label: "Active Agent",
-            value: currentAgent.agent.name,
-            hint: `目前品牌名稱：${currentAgent.agent.brandName}`
+            value: currentAgent.name,
+            hint: `目前品牌名稱：${currentAgent.brandName}`
           },
           {
             label: "Forbidden Topics",
-            value: String(currentAgent.agent.forbiddenTopics.length),
+            value: String(currentAgent.forbiddenTopics.length),
             hint: "目前已設定的禁答主題數"
           },
           {
             label: "Fallback Policy",
-            value: currentAgent.agent.fallbackPolicy ? "configured" : "empty",
-            hint: currentAgent.agent.fallbackPolicy ?? "尚未設定保守回覆策略"
+            value: currentAgent.fallbackPolicy ? "configured" : "empty",
+            hint: currentAgent.fallbackPolicy ?? "尚未設定保守回覆策略"
           }
         ]}
       />

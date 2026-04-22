@@ -1,4 +1,4 @@
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { requireAdminClient } from "@/lib/supabase/admin";
 
 export type SetupTenantInput = {
   userId: string;
@@ -92,10 +92,7 @@ export async function setupTenant(
 }
 
 export function createSupabaseSetupTenantRepository(): SetupTenantRepository {
-  const admin = createAdminSupabaseClient();
-  if (!admin) {
-    throw new Error("Supabase secret key is not configured");
-  }
+  const admin = requireAdminClient();
 
   return {
     async findMembershipByUserId(userId) {

@@ -1,4 +1,5 @@
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { requireAdminClient } from "@/lib/supabase/admin";
+import { normalizeJoin } from "@/lib/supabase/normalize";
 
 export type ConversationMessage = {
   id: string;
@@ -33,16 +34,8 @@ type ConversationRow = {
   human_activated_at: string | null;
   scenario_id: string | null;
   contact:
-    | {
-        id: string;
-        display_name: string | null;
-        external_user_id: string;
-      }
-    | Array<{
-        id: string;
-        display_name: string | null;
-        external_user_id: string;
-      }>;
+    | { id: string; display_name: string | null; external_user_id: string }
+    | Array<{ id: string; display_name: string | null; external_user_id: string }>;
 };
 
 type MessageRow = {
@@ -61,58 +54,44 @@ export type GetConversationRepository = {
 export async function getConversation(
   tenantId: string,
   conversationId: string,
-  repository: GetConversationRepository = createSupabaseGetConversationRepository()
-) {
+  repository: GetConversationRepository = createRepository()
+): Promise<ConversationDetail> {
   const row = await repository.getConversationRow(tenantId, conversationId);
-  const contact = normalizeContact(row.contact);
+  const contact = normalizeJoin(row.contact);
   const messages = await repository.listConversationMessages(tenantId, conversationId);
 
   return {
-    conversation: {
-      id: row.id,
-      status: row.status,
-      openedAt: row.opened_at,
-      lastMessageAt: row.last_message_at,
-      handoffRequestedAt: row.handoff_requested_at,
-      humanActivatedAt: row.human_activated_at,
-      scenarioId: row.scenario_id,
-      contact: {
-        id: contact.id,
-        displayName: contact.display_name ?? contact.external_user_id,
-        externalUserId: contact.external_user_id
-      },
-      messages: messages.map((message) => ({
-        id: message.id,
-        role: message.role,
-        source: message.source,
-        content: message.content,
-        createdAt: message.created_at
-      }))
-    }
+    id: row.id,
+    status: row.status,
+    openedAt: row.opened_at,
+    lastMessageAt: row.last_message_at,
+    handoffRequestedAt: row.handoff_requested_at,
+    humanActivatedAt: row.human_activated_at,
+    scenarioId: row.scenario_id,
+    contact: {
+      id: contact.id,
+      displayName: contact.display_name ?? contact.external_user_id,
+      externalUserId: contact.external_user_id
+    },
+    messages: messages.map((m) => ({
+      id: m.id,
+      role: m.role,
+      source: m.source,
+      content: m.content,
+      createdAt: m.created_at
+    }))
   };
 }
 
-export function createSupabaseGetConversationRepository(): GetConversationRepository {
-  const admin = createAdminSupabaseClient();
-  if (!admin) {
-    throw new Error("Supabase secret key is not configured");
-  }
+function createRepository(): GetConversationRepository {
+  const admin = requireAdminClient();
 
   return {
     async getConversationRow(tenantId, conversationId) {
       const { data, error } = await admin
         .from("conversations")
         .select(
-          [
-            "id",
-            "status",
-            "opened_at",
-            "last_message_at",
-            "handoff_requested_at",
-            "human_activated_at",
-            "scenario_id",
-            "contact:contacts!inner(id, display_name, external_user_id)"
-          ].join(", ")
+          "id, status, opened_at, last_message_at, handoff_requested_at, human_activated_at, scenario_id, contact:contacts!inner(id, display_name, external_user_id)"
         )
         .eq("tenant_id", tenantId)
         .eq("id", conversationId)
@@ -141,8 +120,4 @@ export function createSupabaseGetConversationRepository(): GetConversationReposi
       return data as unknown as MessageRow[];
     }
   };
-}
-
-function normalizeContact(row: ConversationRow["contact"]) {
-  return Array.isArray(row) ? row[0] : row;
 }

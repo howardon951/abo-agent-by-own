@@ -1,4 +1,4 @@
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { requireAdminClient } from "@/lib/supabase/admin";
 import { lineConfigEncryptionKey } from "@/lib/env";
 import { encryptSecret } from "@/lib/utils/crypto";
 
@@ -121,10 +121,7 @@ export async function connectLineChannel(
 }
 
 export function createSupabaseLineChannelRepository(): LineChannelRepository {
-  const admin = createAdminSupabaseClient();
-  if (!admin) {
-    throw new Error("Supabase secret key is not configured");
-  }
+  const admin = requireAdminClient();
 
   return {
     async findPrimaryLineChannel(tenantId) {

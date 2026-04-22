@@ -3,7 +3,7 @@ import { selectScenario } from "@/server/domain/scenario/select-scenario";
 import { retrieveContext } from "@/server/services/retrieval/retriever";
 import { llmProvider } from "@/server/services/llm/llm-provider";
 import { logError, logInfo } from "@/lib/utils/logger";
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { requireAdminClient } from "@/lib/supabase/admin";
 import { lineConfigEncryptionKey } from "@/lib/env";
 import { decryptSecret } from "@/lib/utils/crypto";
 
@@ -232,10 +232,7 @@ export async function processIncomingMessage(
 }
 
 export function createSupabaseRuntimeRepository(): RuntimeRepository {
-  const admin = createAdminSupabaseClient();
-  if (!admin) {
-    throw new Error("Supabase secret key is not configured");
-  }
+  const admin = requireAdminClient();
 
   return {
     async getChannelAccessToken(tenantId, channelId) {

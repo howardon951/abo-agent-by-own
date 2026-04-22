@@ -1,4 +1,5 @@
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { requireAdminClient } from "@/lib/supabase/admin";
+import { pickDefined } from "@/lib/utils/object";
 
 export type CurrentAgent = {
   id: string;
@@ -24,33 +25,28 @@ export type CurrentAgentRepository = {
 
 export async function getCurrentAgent(
   tenantId: string,
-  repository: CurrentAgentRepository = createSupabaseCurrentAgentRepository()
+  repository: CurrentAgentRepository = createRepository()
 ) {
-  return { agent: await repository.getCurrentAgent(tenantId) };
+  return repository.getCurrentAgent(tenantId);
 }
 
 export async function updateCurrentAgent(
   tenantId: string,
   input: UpdateCurrentAgentInput,
-  repository: CurrentAgentRepository = createSupabaseCurrentAgentRepository()
+  repository: CurrentAgentRepository = createRepository()
 ) {
-  return { agent: await repository.updateCurrentAgent(tenantId, input) };
+  return repository.updateCurrentAgent(tenantId, input);
 }
 
-export function createSupabaseCurrentAgentRepository(): CurrentAgentRepository {
-  const admin = createAdminSupabaseClient();
-  if (!admin) {
-    throw new Error("Supabase secret key is not configured");
-  }
-
-  const selectColumns =
-    "id, name, brand_name, brand_tone, forbidden_topics, fallback_policy";
+function createRepository(): CurrentAgentRepository {
+  const admin = requireAdminClient();
+  const columns = "id, name, brand_name, brand_tone, forbidden_topics, fallback_policy";
 
   return {
     async getCurrentAgent(tenantId) {
       const { data, error } = await admin
         .from("agents")
-        .select(selectColumns)
+        .select(columns)
         .eq("tenant_id", tenantId)
         .eq("status", "active")
         .single();
@@ -59,11 +55,18 @@ export function createSupabaseCurrentAgentRepository(): CurrentAgentRepository {
         throw error;
       }
 
-      return mapAgentRow(data);
+      return mapRow(data);
     },
 
     async updateCurrentAgent(tenantId, input) {
-      const updates = toAgentUpdateRow(input);
+      const updates = pickDefined({
+        name: input.name,
+        brand_name: input.brandName,
+        brand_tone: input.brandTone,
+        forbidden_topics: input.forbiddenTopics,
+        fallback_policy: input.fallbackPolicy
+      });
+
       if (Object.keys(updates).length === 0) {
         return this.getCurrentAgent(tenantId);
       }
@@ -73,45 +76,19 @@ export function createSupabaseCurrentAgentRepository(): CurrentAgentRepository {
         .update(updates)
         .eq("tenant_id", tenantId)
         .eq("status", "active")
-        .select(selectColumns)
+        .select(columns)
         .single();
 
       if (error) {
         throw error;
       }
 
-      return mapAgentRow(data);
+      return mapRow(data);
     }
   };
 }
 
-function toAgentUpdateRow(input: UpdateCurrentAgentInput) {
-  const updates: Record<string, string | string[]> = {};
-
-  if (input.name !== undefined) {
-    updates.name = input.name;
-  }
-
-  if (input.brandName !== undefined) {
-    updates.brand_name = input.brandName;
-  }
-
-  if (input.brandTone !== undefined) {
-    updates.brand_tone = input.brandTone;
-  }
-
-  if (input.forbiddenTopics !== undefined) {
-    updates.forbidden_topics = input.forbiddenTopics;
-  }
-
-  if (input.fallbackPolicy !== undefined) {
-    updates.fallback_policy = input.fallbackPolicy;
-  }
-
-  return updates;
-}
-
-function mapAgentRow(row: {
+function mapRow(row: {
   id: string;
   name: string;
   brand_name: string;

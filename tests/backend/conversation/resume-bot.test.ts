@@ -21,10 +21,8 @@ test("resumes a human conversation back to bot_active within the tenant scope", 
   const result = await resumeConversationBot("tenant-1", "conversation-1", repository);
 
   assert.deepEqual(result, {
-    conversation: {
-      id: "conversation-1",
-      status: "bot_active"
-    }
+    id: "conversation-1",
+    status: "bot_active"
   });
   assert.deepEqual(calls, ["resumeConversation:tenant-1:conversation-1"]);
 });

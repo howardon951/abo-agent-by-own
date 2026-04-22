@@ -97,7 +97,7 @@ export default async function ConversationsPage({
           <div className="stack">
             {selectedConversation ? (
               <ConversationDetailPanel
-                conversation={selectedConversation.conversation}
+                conversation={selectedConversation}
                 showStandaloneLink
               />
             ) : (

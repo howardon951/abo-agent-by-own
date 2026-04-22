@@ -10,10 +10,21 @@ const schema = z.object({
   isEnabled: z.boolean().optional()
 });
 
-export async function PATCH(
+type PatchScenarioRouteDeps = {
+  runTenantScopedRoute: typeof runTenantScopedRoute;
+  updateScenario: typeof updateScenario;
+};
+
+export async function patchScenarioRoute(
   request: Request,
-  { params }: { params: Promise<{ scenarioId: string }> }
+  params: Promise<{ scenarioId: string }>,
+  deps: PatchScenarioRouteDeps = {
+    runTenantScopedRoute,
+    updateScenario
+  }
 ) {
+  const { runTenantScopedRoute, updateScenario } = deps;
+
   return runTenantScopedRoute(async (user) => {
     const { scenarioId } = await params;
     const json = await request.json().catch(() => null);
@@ -23,6 +34,13 @@ export async function PATCH(
       return fail("VALIDATION_ERROR", "invalid scenario payload");
     }
 
-    return ok(await updateScenario(user.tenantId, scenarioId, parsed.data));
+    return ok({ scenario: await updateScenario(user.tenantId, scenarioId, parsed.data) });
   });
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ scenarioId: string }> }
+) {
+  return patchScenarioRoute(request, params);
 }

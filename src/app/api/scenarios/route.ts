@@ -4,6 +4,6 @@ import { runTenantScopedRoute } from "@/server/http/tenant-route";
 
 export async function GET() {
   return runTenantScopedRoute(async (user) => {
-    return ok(await listScenarios(user.tenantId));
+    return ok({ scenarios: await listScenarios(user.tenantId) });
   });
 }

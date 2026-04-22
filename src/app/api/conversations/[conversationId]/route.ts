@@ -8,6 +8,6 @@ export async function GET(
 ) {
   return runTenantScopedRoute(async (user) => {
     const { conversationId } = await params;
-    return ok(await getConversation(user.tenantId, conversationId));
+    return ok({ conversation: await getConversation(user.tenantId, conversationId) });
   });
 }

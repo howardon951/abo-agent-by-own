@@ -55,7 +55,7 @@ test("lists scenarios for the current tenant from the repository", async () => {
 
   const result = await listScenarios("tenant-1", repository);
 
-  assert.deepEqual(result, { scenarios });
+  assert.deepEqual(result, scenarios);
   assert.deepEqual(calls, ["listScenarios:tenant-1"]);
 });
 
@@ -74,14 +74,12 @@ test("updates a tenant scenario through the repository", async () => {
   );
 
   assert.deepEqual(result, {
-    scenario: {
-      id: "scenario-sales",
-      scenarioType: "pre_sales",
-      name: "售前銷售問答",
-      routingKeywords: ["報價", "價格"],
-      promptConfig: { objective: "回答售前問題" },
-      isEnabled: false
-    }
+    id: "scenario-sales",
+    scenarioType: "pre_sales",
+    name: "售前銷售問答",
+    routingKeywords: ["報價", "價格"],
+    promptConfig: { objective: "回答售前問題" },
+    isEnabled: false
   });
 
   assert.deepEqual(calls, ["updateScenario:tenant-1:scenario-sales"]);

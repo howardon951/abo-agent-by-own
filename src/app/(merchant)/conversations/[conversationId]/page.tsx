@@ -31,7 +31,7 @@ export default async function ConversationDetailPage({
       title="Conversation"
       description={`集中看這條對話目前是 bot_active 還是 human_active，再決定是否恢復 AI。`}
     >
-      <ConversationDetailPanel conversation={data.conversation} />
+      <ConversationDetailPanel conversation={data} />
     </PageSection>
   );
 }

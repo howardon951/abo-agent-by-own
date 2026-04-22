@@ -1,4 +1,4 @@
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { requireAdminClient } from "@/lib/supabase/admin";
 import { lineConfigEncryptionKey } from "@/lib/env";
 import { decryptSecret } from "@/lib/utils/crypto";
 import { verifyLineSignature } from "@/server/services/line/line-signature";
@@ -294,10 +294,7 @@ export async function ingestLineWebhook(
 }
 
 export function createSupabaseLineWebhookRepository(): LineWebhookRepository {
-  const admin = createAdminSupabaseClient();
-  if (!admin) {
-    throw new Error("Supabase secret key is not configured");
-  }
+  const admin = requireAdminClient();
 
   return {
     async listVerificationCandidates() {

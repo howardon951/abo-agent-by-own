@@ -1,10 +1,7 @@
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { requireAdminClient } from "@/lib/supabase/admin";
 
 export async function enqueueMessageJob(messageId: string) {
-  const admin = createAdminSupabaseClient();
-  if (!admin) {
-    throw new Error("Supabase secret key is not configured");
-  }
+  const admin = requireAdminClient();
 
   const { data: message, error: messageError } = await admin
     .from("messages")

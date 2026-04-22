@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { AuthError, requirePlatformAdmin } from "@/lib/auth/guards";
 import { fail, ok } from "@/server/dto/api-response";
 import { listPlatformTenants, getPlatformTenant } from "@/server/domain/tenant/platform-tenants";
+import { runPlatformAdminRoute } from "@/server/http/tenant-route";
 
 const schema = z.object({
   tenantName: z.string().min(1),
@@ -11,44 +11,29 @@ const schema = z.object({
 });
 
 export async function GET() {
-  try {
-    await requirePlatformAdmin();
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return fail(error.code, error.message, error.status);
-    }
-
-    throw error;
-  }
-
-  return ok({ tenants: await listPlatformTenants() });
+  return runPlatformAdminRoute(async () => {
+    return ok({ tenants: await listPlatformTenants() });
+  });
 }
 
 export async function POST(request: Request) {
-  try {
-    await requirePlatformAdmin();
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return fail(error.code, error.message, error.status);
+  return runPlatformAdminRoute(async () => {
+    const json = await request.json().catch(() => null);
+    const parsed = schema.safeParse(json);
+
+    if (!parsed.success) {
+      return fail("VALIDATION_ERROR", "invalid tenant payload");
     }
 
-    throw error;
-  }
-
-  const json = await request.json().catch(() => null);
-  const parsed = schema.safeParse(json);
-  if (!parsed.success) {
-    return fail("VALIDATION_ERROR", "invalid tenant payload");
-  }
-
-  const tenant = await getPlatformTenant("tenant-demo");
-  return ok({
-    tenant: {
-      ...tenant,
-      name: parsed.data.tenantName,
-      slug: parsed.data.slug,
-      ownerEmail: parsed.data.ownerEmail,
-      plan: parsed.data.planCode
-    }
+    const tenant = await getPlatformTenant("tenant-demo");
+    return ok({
+      tenant: {
+        ...tenant,
+        name: parsed.data.tenantName,
+        slug: parsed.data.slug,
+        ownerEmail: parsed.data.ownerEmail,
+        plan: parsed.data.planCode
+      }
+    });
   });
 }

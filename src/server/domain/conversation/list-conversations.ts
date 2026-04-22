@@ -1,4 +1,5 @@
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { requireAdminClient } from "@/lib/supabase/admin";
+import { normalizeJoin } from "@/lib/supabase/normalize";
 
 export type ConversationListItem = {
   id: string;
@@ -13,14 +14,8 @@ type ConversationRow = {
   status: string;
   last_message_at: string | null;
   contact:
-    | {
-        display_name: string | null;
-        external_user_id: string;
-      }
-    | Array<{
-        display_name: string | null;
-        external_user_id: string;
-      }>;
+    | { display_name: string | null; external_user_id: string }
+    | Array<{ display_name: string | null; external_user_id: string }>;
 };
 
 type MessageRow = {
@@ -36,37 +31,38 @@ export type ListConversationsRepository = {
 
 export async function listConversations(
   tenantId: string,
-  repository: ListConversationsRepository = createSupabaseListConversationsRepository()
+  repository: ListConversationsRepository = createRepository()
 ) {
   const rows = await repository.listConversationRows(tenantId);
   const latestMessages =
-    rows.length > 0 ? await repository.listLatestMessages(tenantId, rows.map((row) => row.id)) : [];
-  const latestMessageByConversationId = new Map(
-    latestMessages.map((message) => [message.conversation_id, message])
-  );
+    rows.length > 0
+      ? await repository.listLatestMessages(
+          tenantId,
+          rows.map((row) => row.id)
+        )
+      : [];
+
+  const latestByConversation = new Map(latestMessages.map((m) => [m.conversation_id, m]));
 
   return {
     items: rows.map((row) => {
-      const contact = normalizeContact(row.contact);
-      const latestMessage = latestMessageByConversationId.get(row.id);
+      const contact = normalizeJoin(row.contact);
+      const latest = latestByConversation.get(row.id);
 
       return {
         id: row.id,
         status: row.status,
         contactDisplayName: contact.display_name ?? contact.external_user_id,
-        lastMessageAt: row.last_message_at ?? latestMessage?.created_at ?? null,
-        lastMessageSnippet: latestMessage?.content ?? null
+        lastMessageAt: row.last_message_at ?? latest?.created_at ?? null,
+        lastMessageSnippet: latest?.content ?? null
       };
     }),
     nextCursor: null
   };
 }
 
-export function createSupabaseListConversationsRepository(): ListConversationsRepository {
-  const admin = createAdminSupabaseClient();
-  if (!admin) {
-    throw new Error("Supabase secret key is not configured");
-  }
+function createRepository(): ListConversationsRepository {
+  const admin = requireAdminClient();
 
   return {
     async listConversationRows(tenantId) {
@@ -99,18 +95,14 @@ export function createSupabaseListConversationsRepository(): ListConversationsRe
         throw error;
       }
 
-      const latestByConversationId = new Map<string, MessageRow>();
+      const latestByConversation = new Map<string, MessageRow>();
       for (const row of data as unknown as MessageRow[]) {
-        if (!latestByConversationId.has(row.conversation_id)) {
-          latestByConversationId.set(row.conversation_id, row);
+        if (!latestByConversation.has(row.conversation_id)) {
+          latestByConversation.set(row.conversation_id, row);
         }
       }
 
-      return Array.from(latestByConversationId.values());
+      return Array.from(latestByConversation.values());
     }
   };
-}
-
-function normalizeContact(row: ConversationRow["contact"]) {
-  return Array.isArray(row) ? row[0] : row;
 }

@@ -4,7 +4,7 @@ import {
   getCurrentAgent,
   updateCurrentAgent,
   type CurrentAgentRepository
-} from "@/server/domain/agent/get-current-agent";
+} from "@/server/domain/agent/agent";
 
 function createRepository(overrides: Partial<CurrentAgentRepository> = {}) {
   const calls: string[] = [];
@@ -45,7 +45,7 @@ test("reads the active agent for the current tenant from the repository", async 
 
   const result = await getCurrentAgent("tenant-1", repository);
 
-  assert.deepEqual(result, { agent });
+  assert.deepEqual(result, agent);
   assert.deepEqual(calls, ["getCurrentAgent:tenant-1"]);
 });
 
@@ -62,14 +62,12 @@ test("updates the active agent for the current tenant through the repository", a
   );
 
   assert.deepEqual(result, {
-    agent: {
-      id: "agent-1",
-      name: "Main Agent",
-      brandName: "Abo Coffee",
-      brandTone: "溫暖、清楚",
-      forbiddenTopics: ["法律意見", "醫療建議"],
-      fallbackPolicy: "若資料不足，請保守回答並請用戶稍候"
-    }
+    id: "agent-1",
+    name: "Main Agent",
+    brandName: "Abo Coffee",
+    brandTone: "溫暖、清楚",
+    forbiddenTopics: ["法律意見", "醫療建議"],
+    fallbackPolicy: "若資料不足，請保守回答並請用戶稍候"
   });
 
   assert.deepEqual(calls, ["updateCurrentAgent:tenant-1"]);

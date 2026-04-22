@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { fail, ok } from "@/server/dto/api-response";
-import { getCurrentAgent, updateCurrentAgent } from "@/server/domain/agent/get-current-agent";
+import { getCurrentAgent, updateCurrentAgent } from "@/server/domain/agent/agent";
 import { runTenantScopedRoute } from "@/server/http/tenant-route";
 
 const patchSchema = z.object({
@@ -13,7 +13,7 @@ const patchSchema = z.object({
 
 export async function GET() {
   return runTenantScopedRoute(async (user) => {
-    return ok(await getCurrentAgent(user.tenantId));
+    return ok({ agent: await getCurrentAgent(user.tenantId) });
   });
 }
 
@@ -26,6 +26,6 @@ export async function PATCH(request: Request) {
       return fail("VALIDATION_ERROR", "invalid agent payload");
     }
 
-    return ok(await updateCurrentAgent(user.tenantId, parsed.data));
+    return ok({ agent: await updateCurrentAgent(user.tenantId, parsed.data) });
   });
 }

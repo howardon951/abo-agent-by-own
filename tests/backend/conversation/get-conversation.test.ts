@@ -50,36 +50,34 @@ test("returns a tenant-scoped conversation with ordered messages", async () => {
   const result = await getConversation("tenant-1", "conversation-2", repository);
 
   assert.deepEqual(result, {
-    conversation: {
-      id: "conversation-2",
-      status: "human_active",
-      openedAt: "2026-04-21T09:50:00Z",
-      lastMessageAt: "2026-04-21T10:05:00Z",
-      handoffRequestedAt: "2026-04-21T10:04:00Z",
-      humanActivatedAt: "2026-04-21T10:04:00Z",
-      scenarioId: null,
-      contact: {
-        id: "contact-1",
-        displayName: "U-line-2",
-        externalUserId: "U-line-2"
+    id: "conversation-2",
+    status: "human_active",
+    openedAt: "2026-04-21T09:50:00Z",
+    lastMessageAt: "2026-04-21T10:05:00Z",
+    handoffRequestedAt: "2026-04-21T10:04:00Z",
+    humanActivatedAt: "2026-04-21T10:04:00Z",
+    scenarioId: null,
+    contact: {
+      id: "contact-1",
+      displayName: "U-line-2",
+      externalUserId: "U-line-2"
+    },
+    messages: [
+      {
+        id: "message-1",
+        role: "user",
+        source: "line_webhook",
+        content: "我要找真人",
+        createdAt: "2026-04-21T10:03:00Z"
       },
-      messages: [
-        {
-          id: "message-1",
-          role: "user",
-          source: "line_webhook",
-          content: "我要找真人",
-          createdAt: "2026-04-21T10:03:00Z"
-        },
-        {
-          id: "message-2",
-          role: "assistant",
-          source: "system",
-          content: "已轉由真人協助，請稍候",
-          createdAt: "2026-04-21T10:04:00Z"
-        }
-      ]
-    }
+      {
+        id: "message-2",
+        role: "assistant",
+        source: "system",
+        content: "已轉由真人協助，請稍候",
+        createdAt: "2026-04-21T10:04:00Z"
+      }
+    ]
   });
   assert.deepEqual(calls, [
     "getConversationRow:tenant-1:conversation-2",

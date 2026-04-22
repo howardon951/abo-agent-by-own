@@ -13,3 +13,11 @@ export function createAdminSupabaseClient() {
     }
   });
 }
+
+export function requireAdminClient() {
+  const client = createAdminSupabaseClient();
+  if (!client) {
+    throw new Error("Supabase secret key is not configured");
+  }
+  return client;
+}

@@ -21,8 +21,8 @@ export default async function ScenariosPage() {
   }
 
   const scenarioData = await listScenarios(user.tenantId);
-  const enabledCount = scenarioData.scenarios.filter((scenario) => scenario.isEnabled).length;
-  const keywordCount = scenarioData.scenarios.reduce(
+  const enabledCount = scenarioData.filter((scenario) => scenario.isEnabled).length;
+  const keywordCount = scenarioData.reduce(
     (total, scenario) => total + scenario.routingKeywords.length,
     0
   );
@@ -41,7 +41,7 @@ export default async function ScenariosPage() {
         stats={[
           {
             label: "Scenarios",
-            value: String(scenarioData.scenarios.length),
+            value: String(scenarioData.length),
             hint: "目前 active agent 底下的情境數"
           },
           {

@@ -1,4 +1,4 @@
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { requireAdminClient } from "@/lib/supabase/admin";
 
 export type ClaimedMessageJob = {
   id: string;
@@ -52,10 +52,7 @@ export async function failJob(
 }
 
 export function createSupabaseMessageJobRepository(): MessageJobRepository {
-  const admin = createAdminSupabaseClient();
-  if (!admin) {
-    throw new Error("Supabase secret key is not configured");
-  }
+  const admin = requireAdminClient();
 
   return {
     async claimNextJob(workerId, leaseMs) {
