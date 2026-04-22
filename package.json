@@ -3,11 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "concurrently -k -n web,worker -c auto \"pnpm dev:web\" \"pnpm dev:worker\"",
+    "dev:web": "next dev",
+    "dev:worker": "node --env-file=.env.local --import tsx src/worker/index.ts",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "worker": "node --env-file=.env.local --import tsx src/worker/index.ts",
+    "worker": "pnpm dev:worker",
     "test:backend": "node --import tsx --test tests/backend/**/*.test.ts"
   },
   "dependencies": {
@@ -19,6 +21,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "@types/node": "^22.10.1",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
